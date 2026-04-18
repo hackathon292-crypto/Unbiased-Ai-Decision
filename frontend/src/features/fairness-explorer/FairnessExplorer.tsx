@@ -24,13 +24,14 @@ export function FairnessExplorer() {
     setIsLoading(true);
     try {
       const payload = {
-        income:           f.income,
         credit_score:     f.creditScore,
+        annual_income:    f.income,
         loan_amount:      50000,
+        loan_term_months: 36,
         employment_years: Math.max(1, f.age - 22),
       };
       const [orig, fair] = await Promise.all([
-        api.predictLoan({ ...payload, sensitive_attr: "gender", sensitive_value: f.gender.toLowerCase() }),
+        api.predictLoan({ ...payload, gender: f.gender.toLowerCase() }),
         api.predictLoan({ ...payload }),
       ]);
       const origProb  = orig.confidence;

@@ -65,21 +65,27 @@ export interface RecentResponse {
 }
 
 export interface HiringRequest {
-  years_experience: number;
-  education_level:  number;
-  skill_score:      number;
-  interview_score:  number;
-  sensitive_attr?:  string;
-  sensitive_value?: string;
+  years_experience:    number;
+  education_level:     number;
+  technical_score:     number;
+  communication_score: number;
+  num_past_jobs:       number;
+  certifications?:     number;
+  gender?:             string;
+  ethnicity?:          string;
 }
 
 export interface LoanRequest {
-  income:         number;
-  credit_score:   number;
-  loan_amount:    number;
+  credit_score:     number;
+  annual_income:    number;
+  loan_amount:      number;
+  loan_term_months: number;
   employment_years: number;
-  sensitive_attr?:  string;
-  sensitive_value?: string;
+  existing_debt?:   number;
+  num_credit_lines?: number;
+  gender?:          string;
+  age_group?:       string;
+  ethnicity?:       string;
 }
 
 export interface PredictionResponse {

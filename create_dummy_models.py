@@ -52,6 +52,6 @@ X = np.column_stack([
 ])
 y = np.random.randint(0, 8, 500)
 m = RandomForestClassifier(n_estimators=50, random_state=42).fit(X, y)
-joblib.dump(m, "models/social_model.pkl")
-print("[ok] social_model.pkl")
+joblib.dump(m, MODELS_DIR / "social_model.pkl")
+print(f"[ok] {MODELS_DIR / 'social_model.pkl'}")
 print("\nDone. Run: uvicorn main:app --reload")
