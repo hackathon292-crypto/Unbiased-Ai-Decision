@@ -95,10 +95,14 @@ def _parse_frontend_origins() -> list[str]:
     if raw:
         return [origin.strip() for origin in raw.split(",") if origin.strip()]
     if os.getenv("ENVIRONMENT", "development").lower() == "production":
-        raise RuntimeError(
-            "FRONTEND_ORIGINS is required in production. "
-            "Set it in the Render dashboard, e.g. 'https://your-frontend.netlify.app'."
+        # Warn loudly but do NOT crash — operator must set this in Render dashboard
+        # after the first deploy succeeds and the frontend URL is known.
+        import logging as _log
+        _log.getLogger("main").warning(
+            "FRONTEND_ORIGINS not set in production — allowing all origins (*). "
+            "Set FRONTEND_ORIGINS in the Render dashboard to lock this down."
         )
+        return ["*"]
     return [
         "http://localhost:5173",
         "http://127.0.0.1:5173",

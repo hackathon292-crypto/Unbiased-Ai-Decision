@@ -1,0 +1,22 @@
+# netlify.toml — Quantum frontend deployment config
+# ─────────────────────────────────────────────────
+# How to deploy:
+#   1. Connect this repo to Netlify (netlify.com → New site → Import from Git)
+#   2. Netlify auto-detects this file — no manual config needed
+#   3. Add environment variable in Netlify dashboard → Site settings → Env vars:
+#        VITE_API_BASE_URL = https://your-render-backend.onrender.com
+#   4. Push to main → auto-deploys
+
+[build]
+  base    = "frontend"
+  command = "npm install && npm run build"
+  publish = "frontend/dist"
+
+# SPA routing — redirect all paths to index.html so React Router handles them
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
+
+[build.environment]
+  NODE_VERSION = "20"

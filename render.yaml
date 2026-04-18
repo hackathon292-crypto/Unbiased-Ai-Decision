@@ -18,14 +18,14 @@ services:
     plan: free              # Use "starter" for paid, always-on service
 
     # ── Build ────────────────────────────────────────────────────────────────
-    # Installs prod deps from backend/requirements.txt (via root shim) then
-    # regenerates dummy model pickles inside backend/models/ so the app boots
-    # even on a fresh clone.
+    # Runs from repo root. Installs deps via root requirements.txt shim
+    # (which proxies to backend/requirements.txt), then generates dummy model
+    # pickles into backend/models/ so the app starts on a fresh clone.
     buildCommand: pip install -r requirements.txt && python create_dummy_models.py
 
     # ── Start ────────────────────────────────────────────────────────────────
-    # Run uvicorn with CWD=backend so unqualified imports (hiring.router,
-    # utils.*, fairness.*) resolve correctly.
+    # cd into backend/ so Python's unqualified imports (hiring.router,
+    # utils.*, fairness.*) resolve correctly relative to that package root.
     startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
 
     # ── Health check (Render pings this to confirm the service is alive) ─────
@@ -43,6 +43,8 @@ services:
         value: production
       - key: LOG_LEVEL
         value: INFO
+      - key: PYTHON_VERSION
+        value: "3.11.9"
 
     # ── Auto-deploy on git push ───────────────────────────────────────────────
     autoDeploy: true
