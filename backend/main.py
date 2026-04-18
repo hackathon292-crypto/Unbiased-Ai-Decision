@@ -38,6 +38,7 @@ from loan.router      import router as loan_router
 from social.router    import router as social_router
 from utils.shap_cache import router as shap_router
 from utils.feedback_router import router as feedback_router
+from utils.insights_router import router as insights_router
 from utils.logger     import setup_logger, log_correlation_event
 from utils.model_registry import registry
 from utils.database   import ensure_indexes
@@ -381,7 +382,8 @@ async def correlation_middleware(request: Request, call_next):
     model_meta        = registry.get_metadata(domain) if domain else {}
     sanitised_payload = _sanitise(raw_payload)
 
-    if path not in ("/health", "/", "/docs", "/redoc", "/openapi.json"):
+    _SKIP_AUDIT = ("/health", "/", "/docs", "/redoc", "/openapi.json")
+    if path not in _SKIP_AUDIT and not path.startswith("/insights/"):
         log_correlation_event(
             correlation_id = correlation_id,
             event          = "request_received",
@@ -411,9 +413,10 @@ async def correlation_middleware(request: Request, call_next):
   
 app.include_router(hiring_router,   prefix="/hiring", tags=["Hiring"])
 app.include_router(loan_router,     prefix="/loan",   tags=["Loan"])
-app.include_router(social_router, prefix="/social",   tags=["Soci"])
-app.include_router(feedback_router,                   tags=["Feedbackal"])
-app.include_router(shap_router,                     tags=["SHAP"])
+app.include_router(social_router,   prefix="/social", tags=["Social"])
+app.include_router(shap_router,                       tags=["SHAP"])
+app.include_router(feedback_router,                   tags=["Feedback"])
+app.include_router(insights_router,                   tags=["Insights"])
 
 
 # ─── Platform endpoints ───────────────────────────────────────────────────────
@@ -434,6 +437,10 @@ def root():
             "POST /hiring/predict",
             "POST /loan/predict",
             "POST /social/recommend",
+            "POST /feedback",
+            "POST /fairness/batch",
+            "GET  /insights/{domain}/recent",
+            "GET  /insights/{domain}/summary",
             "GET  /shap/{correlation_id}",
             "WS   /shap/ws/{correlation_id}",
             "GET  /models",
