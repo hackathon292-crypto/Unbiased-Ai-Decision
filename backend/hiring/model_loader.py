@@ -28,7 +28,9 @@ from typing import Any, Tuple
 from utils.model_registry import registry
 
 MODEL_NAME = "hiring"
-MODEL_PATH = Path("models/hiring_model.pkl")
+# Anchor to backend/ so the path works regardless of the process CWD
+# (tests run from backend/, uvicorn may run from repo root).
+MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "hiring_model.pkl"
 
 
 def preload(path: Path = MODEL_PATH) -> None:

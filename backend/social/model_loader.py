@@ -11,7 +11,8 @@ from typing import Any, Tuple
 from utils.model_registry import registry
 
 MODEL_NAME = "social"
-MODEL_PATH = Path("models/social_model.pkl")
+# Anchor to backend/ so the path works regardless of the process CWD.
+MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "social_model.pkl"
 
 
 def preload(path: Path = MODEL_PATH) -> None:

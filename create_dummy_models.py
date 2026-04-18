@@ -1,11 +1,19 @@
-"""create_dummy_models.py — generates placeholder .pkl files for testing."""
+"""create_dummy_models.py — generates placeholder .pkl files for testing.
+
+Writes into ``backend/models/`` so the pickles live next to the code that
+loads them (see backend/<domain>/model_loader.py).  Safe to run from any
+working directory.
+"""
 import numpy as np
 import joblib
 from pathlib import Path
 from sklearn.ensemble import RandomForestClassifier
 
-Path("models").mkdir(exist_ok=True)
-Path("logs").mkdir(exist_ok=True)
+ROOT       = Path(__file__).resolve().parent
+MODELS_DIR = ROOT / "backend" / "models"
+LOGS_DIR   = ROOT / "backend" / "logs"
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
+LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
 np.random.seed(42)
 
@@ -13,8 +21,8 @@ np.random.seed(42)
 X = np.random.rand(500, 6) * [20, 3, 100, 100, 10, 5]
 y = (X[:, 2] + X[:, 3] > 100).astype(int)
 m = RandomForestClassifier(n_estimators=50, random_state=42).fit(X, y)
-joblib.dump(m, "models/hiring_model.pkl")
-print("[ok] hiring_model.pkl")
+joblib.dump(m, MODELS_DIR / "hiring_model.pkl")
+print(f"[ok] {MODELS_DIR / 'hiring_model.pkl'}")
 
 # Loan
 X = np.column_stack([
@@ -29,8 +37,8 @@ X = np.column_stack([
 dti = X[:, 5] / (X[:, 1] + 1)
 y   = ((X[:, 0] > 620) & (dti < 0.5)).astype(int)
 m   = RandomForestClassifier(n_estimators=50, random_state=42).fit(X, y)
-joblib.dump(m, "models/loan_model.pkl")
-print("[ok] loan_model.pkl")
+joblib.dump(m, MODELS_DIR / "loan_model.pkl")
+print(f"[ok] {MODELS_DIR / 'loan_model.pkl'}")
 
 # Social
 X = np.column_stack([

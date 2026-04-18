@@ -119,8 +119,11 @@ async def lifespan(app: FastAPI):
         logger.error(f"FATAL: {exc}  Run python create_dummy_models.py")
         raise
     if not MONGO_URL and not _RUNNING_TESTS:
-        raise RuntimeError(
-            "MONGO_URL is not set. Create backend/.env and add MONGO_URL=<your MongoDB URI>."
+        logger.warning(
+            "MONGO_URL not set — persistence will use the JSON fallback "
+            "(predictions.json). This is OK for demos but NOT recommended for "
+            "production traffic. Set MONGO_URL in the Render dashboard to "
+            "enable MongoDB-backed auditing."
         )
     await ensure_indexes()
     logger.info("=== Ready ===")

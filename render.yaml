@@ -13,14 +13,20 @@ services:
   - type: web
     name: quantum-ai-backend
     runtime: python
+    pythonVersion: "3.11.9"  # Explicit pin (also in .python-version for Render's buildpack)
     region: oregon          # Free tier available in: oregon, frankfurt
     plan: free              # Use "starter" for paid, always-on service
 
     # ── Build ────────────────────────────────────────────────────────────────
-    buildCommand: pip install -r requirements.txt
+    # Installs prod deps from backend/requirements.txt (via root shim) then
+    # regenerates dummy model pickles inside backend/models/ so the app boots
+    # even on a fresh clone.
+    buildCommand: pip install -r requirements.txt && python create_dummy_models.py
 
     # ── Start ────────────────────────────────────────────────────────────────
-    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    # Run uvicorn with CWD=backend so unqualified imports (hiring.router,
+    # utils.*, fairness.*) resolve correctly.
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
 
     # ── Health check (Render pings this to confirm the service is alive) ─────
     healthCheckPath: /health
