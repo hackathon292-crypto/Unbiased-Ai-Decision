@@ -13,7 +13,7 @@ services:
   - type: web
     name: quantum-ai-backend
     runtime: python
-    pythonVersion: "3.11.9"  # Explicit pin (also in .python-version for Render's buildpack)
+    pythonVersion: "3.11.5"  # Explicit pin (also in .python-version for Render's buildpack)
     region: oregon          # Free tier available in: oregon, frankfurt
     plan: free              # Use "starter" for paid, always-on service
 
@@ -44,7 +44,7 @@ services:
       - key: LOG_LEVEL
         value: INFO
       - key: PYTHON_VERSION
-        value: "3.11.9"
+        value: "3.11.5"
 
     # ── Auto-deploy on git push ───────────────────────────────────────────────
     autoDeploy: true
