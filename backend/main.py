@@ -77,8 +77,8 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
-MAX_BODY_BYTES: int = _env_int("MAX_BODY_BYTES", 64 * 1024)
-REQUEST_TIMEOUT_S: float = _env_float("REQUEST_TIMEOUT_S", 15.0)
+MAX_BODY_BYTES: int = _env_int("MAX_BODY_BYTES", 10 * 1024 * 1024)
+REQUEST_TIMEOUT_S: float = _env_float("REQUEST_TIMEOUT_S", 60.0)
 RATE_LIMIT_WINDOW_S: int = _env_int("RATE_LIMIT_WINDOW_S", 60)
 RATE_LIMIT_MAX_REQUESTS: int = _env_int("RATE_LIMIT_MAX_REQUESTS", 120)
 RATE_LIMIT_MAX_KEYS: int = _env_int("RATE_LIMIT_MAX_KEYS", 10_000)
@@ -328,7 +328,8 @@ async def request_security_middleware(request: Request, call_next):
         except ValueError:
             pass
 
-    if method in ("POST", "PUT", "PATCH"):
+    _SKIP_BODY_CHECK = ("/files/upload",)
+    if method in ("POST", "PUT", "PATCH") and path not in _SKIP_BODY_CHECK:
         body_bytes = await request.body()
 
         # 2a. Actual body size
