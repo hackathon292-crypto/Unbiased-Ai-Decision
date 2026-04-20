@@ -29,16 +29,16 @@ services:
         sync: false
 
   # 2. Frontend Service (React/Vite)
-  - type: web
+  - type: static_site # <--- CHANGED FROM 'web' TO 'static_site'
     name: quantum-ai-frontend
     env: static
     rootDir: frontend
     region: oregon
     plan: free
     buildCommand: npm install && npm run build
-    publishPath: dist
-    # Rewrite all requests to index.html for React Router support
+    publishPath: dist # <--- This will now be accepted
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
+  
