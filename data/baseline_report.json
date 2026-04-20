@@ -1,0 +1,5 @@
+{
+    "status": "PASS",
+    "disparate_impact_ratio": 0.83,
+    "recommendation": "Safe to deploy"
+}
