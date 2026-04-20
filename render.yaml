@@ -1,19 +1,11 @@
-# render.yaml
-# ─────────────────────────────────────────────────────────────────────────────
-# Render deployment configuration for Quantum – Unbiased AI Decision Platform
-# ─────────────────────────────────────────────────────────────────────────────
-
 services:
-  # 1. Backend Service (FastAPI/Python)
   - type: web
     name: quantum-ai-backend
     env: python
     rootDir: backend
     region: oregon
     plan: free
-    # We look one level up (../) for requirements.txt since it's in the root
     buildCommand: pip install -r ../requirements.txt && python ../create_dummy_models.py
-    # Start command relative to the backend folder
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
@@ -28,16 +20,14 @@ services:
       - key: FRONTEND_ORIGINS
         sync: false
 
-  # 2. Frontend Service (React/Vite)
- # 2. Frontend Service (React/Vite)
-- type: static_site
-  name: quantum-ai-frontend
-  rootDir: frontend
-  region: oregon
-  plan: free
-  buildCommand: npm install && npm run build
-  publishPath: dist
-  routes:
-    - type: rewrite
-      source: /*
-      destination: /index.html
+  - type: static_site
+    name: quantum-ai-frontend
+    rootDir: frontend
+    region: oregon
+    plan: free
+    buildCommand: npm install && npm run build
+    publishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
