@@ -95,7 +95,15 @@ _PREDICTION_PATHS = frozenset({"/hiring/predict", "/loan/predict", "/social/reco
 def _parse_frontend_origins() -> list[str]:
     raw = os.getenv("FRONTEND_ORIGINS", "").strip()
     if raw:
-        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+        origins: list[str] = []
+        for origin in raw.split(","):
+            normalized = origin.strip()
+            if not normalized:
+                continue
+            if normalized != "*":
+                normalized = normalized.rstrip("/")
+            origins.append(normalized)
+        return origins
     if os.getenv("ENVIRONMENT", "development").lower() == "production":
         # Warn loudly but do NOT crash — operator must set this in Render dashboard
         # after the first deploy succeeds and the frontend URL is known.
