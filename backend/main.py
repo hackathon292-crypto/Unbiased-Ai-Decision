@@ -439,7 +439,7 @@ app.include_router(social_router,   prefix="/social", tags=["Social"])
 app.include_router(shap_router,                       tags=["SHAP"])
 app.include_router(feedback_router,                   tags=["Feedback"])
 app.include_router(insights_router,                   tags=["Insights"])
-app.include_router(file_router,     prefix="/files",  tags=["Files"])
+app.include_router(file_router,                       tags=["Files"])
 app.include_router(mitigation_router,                 tags=["Mitigation"])
 
 
