@@ -392,7 +392,7 @@ def run_fairness_check(
             "note": (
                 "Single-prediction fairness is logged. "
                 "Batch calibration and equalized-odds checks run automatically "
-                "once ≥ 30 records accumulate per group. "
+                "once ≥ 10 records accumulate per group. "
                 "See POST /fairness/batch for on-demand evaluation."
             ),
         },

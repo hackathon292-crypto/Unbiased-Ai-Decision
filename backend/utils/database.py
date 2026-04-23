@@ -38,7 +38,7 @@ Algorithm
     over-correction on sparse or noisy histories.
 
 4.  Cold-start fallback
-    When fewer than MIN_HISTORY (30) qualifying records exist, the function
+    When fewer than MIN_HISTORY (10) qualifying records exist, the function
     returns raw features unchanged with a clear explanatory message.
 
 Return value (always safe to use — never raises)
@@ -85,7 +85,7 @@ logger = logging.getLogger("database")
 # ─── Pre-processing configuration ────────────────────────────────────────────
 
 # Minimum qualifying records before correlation estimation is attempted.
-MIN_HISTORY: int = 30
+MIN_HISTORY: int = 10
 
 # |Pearson r| threshold above which a feature is adjusted.
 CORRELATION_THRESHOLD: float = 0.15

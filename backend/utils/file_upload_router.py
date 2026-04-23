@@ -366,3 +366,39 @@ async def get_stats():
         "upload_dir": str(UPLOAD_DIR.absolute()),
         "max_file_size_mb": MAX_FILE_SIZE_MB,
     }
+
+
+@router.post("/analyze/{file_id}")
+async def analyze_file(file_id: str):
+    """
+    Analyze a tabular data file: detect domain, map columns, run batch predictions.
+    Only works for 'data' category files (CSV, Excel, JSON, Parquet).
+    """
+    from .dataset_analyzer import analyze_uploaded_file
+    
+    # Check if file exists
+    meta_path = UPLOAD_DIR / f"{file_id}.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    # Check if it's a data file
+    with open(meta_path) as f:
+        import json
+        metadata = json.load(f)
+    
+    if metadata.get("category") != "data":
+        raise HTTPException(
+            status_code=400,
+            detail="Only data category files (CSV, Excel, JSON, Parquet) can be analyzed for predictions."
+        )
+    
+    # Run analysis
+    try:
+        result = await analyze_uploaded_file(file_id, UPLOAD_DIR)
+        return JSONResponse(content=result)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")

@@ -16,11 +16,13 @@ from utils.validation  import LoanRequest, LoanResponse   # ← Phase 4
 router = APIRouter()
 logger = logging.getLogger("loan.router")
 
+_MIN_POST_PROCESSING_RECORDS = 10
+
 
 async def _run_post_processing_background(domain: str, sensitive_attr: str) -> None:
     try:
         records = await get_recent_predictions(domain, limit=500, sensitive_attr=sensitive_attr)
-        if len(records) < 30:
+        if len(records) < _MIN_POST_PROCESSING_RECORDS:
             return
         y_pred, y_prob, y_true, sens_vals = [], [], [], []
         for r in records:
@@ -31,10 +33,10 @@ async def _run_post_processing_background(domain: str, sensitive_attr: str) -> N
             y_prob.append(float(r.get("confidence", 0.5)))
             y_true.append(int(gt))
             sens_vals.append(str(r.get("sensitive_value_group", "unknown")))
-        if len(y_pred) < 30:
+        if len(y_pred) < _MIN_POST_PROCESSING_RECORDS:
             logger.info(
                 f"[{domain}] post-processing skipped: only {len(y_pred)} labelled "
-                f"records (need >= 30). Feed ground-truth via POST /feedback."
+                f"records (need >= {_MIN_POST_PROCESSING_RECORDS}). Feed ground-truth via POST /feedback."
             )
             return
         result = run_post_processing_checks(

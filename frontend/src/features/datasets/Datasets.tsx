@@ -6,7 +6,7 @@ import {
   RefreshCw, HardDrive, Plus
 } from 'lucide-react';
 import { api } from '../../lib/api';
-import type { FileMetadata, FileStats } from '../../lib/api';
+import type { FileMetadata, FileStats, DatasetAnalysisResult } from '../../lib/api';
 
 type ViewMode = 'grid' | 'list';
 type FileCategory = 'all' | 'image' | 'document' | 'data' | 'archive' | 'other';
@@ -61,6 +61,10 @@ export function Datasets() {
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('');
   const [domain, setDomain] = useState<'loan' | 'hiring' | 'social' | ''>('');
+  
+  // Analysis states
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<DatasetAnalysisResult | null>(null);
 
   const fetchFiles = useCallback(async () => {
     setLoading(true);
@@ -97,13 +101,13 @@ export function Datasets() {
     e.stopPropagation();
     setDragActive(false);
 
-    const droppedFiles = Array.from(e.dataTransfer.files);
+    const droppedFiles = Array.from<File>(e.dataTransfer.files);
     await uploadMultipleFiles(droppedFiles);
   };
 
   const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const selectedFiles = Array.from(e.target.files);
+      const selectedFiles = Array.from<File>(e.target.files);
       await uploadMultipleFiles(selectedFiles);
     }
   };
@@ -144,12 +148,18 @@ export function Datasets() {
     });
 
     try {
-      await Promise.all(uploadPromises);
+      const uploadedFiles = await Promise.all(uploadPromises);
       // Refresh file list
       fetchFiles();
       // Clear form
       setDescription('');
       setTags('');
+      
+      // Auto-analyze data files (CSV, Excel, JSON, Parquet)
+      const dataFiles = uploadedFiles.filter(f => f.category === 'data');
+      if (dataFiles.length > 0) {
+        await handleAnalyze(dataFiles[0].id);
+      }
     } catch (err) {
       alert('Some files failed to upload. Please try again.');
     }
@@ -173,6 +183,18 @@ export function Datasets() {
     a.href = url;
     a.download = file.filename;
     a.click();
+  };
+
+  const handleAnalyze = async (fileId: string) => {
+    setAnalyzing(true);
+    try {
+      const result = await api.analyzeDataset(fileId);
+      setAnalysisResult(result);
+    } catch (err) {
+      alert('Analysis failed: ' + (err as Error).message);
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   const filteredFiles = files.filter(file => 
@@ -214,16 +236,17 @@ export function Datasets() {
             <button
               key={category}
               onClick={() => setActiveCategory(category as FileCategory)}
-              className={`p-4 rounded-2xl border-2 transition-all text-left ${
+              className={`p-4 rounded-2xl border-2 transition-all duration-300 text-left hover:shadow-md hover:-translate-y-0.5 ${
                 activeCategory === category
-                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950'
-                  : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300'
+                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950 shadow-md'
+                  : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
               }`}
             >
               <div className={`inline-flex p-2 rounded-xl ${CATEGORY_COLORS[category]}`}>
                 {FileIconComponent(category)}
               </div>
               <div className="mt-2 text-2xl font-semibold dark:text-white">{count}</div>
+              <div className="text-sm text-zinc-500">{category}</div>
               <div className="text-sm text-zinc-500 capitalize">{category}s</div>
             </button>
           ))}
@@ -279,7 +302,7 @@ export function Datasets() {
             </select>
           </div>
 
-          <label className="mt-6 inline-flex items-center gap-2 px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl cursor-pointer transition-colors">
+          <label className="mt-6 inline-flex items-center gap-2 px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-emerald-500/30">
             <Plus size={20} />
             Select Files to Upload
             <input
@@ -328,10 +351,10 @@ export function Datasets() {
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:scale-105 ${
                 activeCategory === cat
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
               }`}
             >
               {cat === 'all' ? 'All Files' : cat.charAt(0).toUpperCase() + cat.slice(1) + 's'}
@@ -342,24 +365,33 @@ export function Datasets() {
         <div className="flex gap-2">
           <button
             onClick={() => setViewMode('grid')}
-            className={`p-2 rounded-xl ${viewMode === 'grid' ? 'bg-emerald-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800'}`}
+            className={`p-2 rounded-xl transition-all duration-200 hover:scale-110 ${viewMode === 'grid' ? 'bg-emerald-600 text-white shadow-md' : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
           >
             <Grid size={20} />
           </button>
           <button
             onClick={() => setViewMode('list')}
-            className={`p-2 rounded-xl ${viewMode === 'list' ? 'bg-emerald-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800'}`}
+            className={`p-2 rounded-xl transition-all duration-200 hover:scale-110 ${viewMode === 'list' ? 'bg-emerald-600 text-white shadow-md' : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
           >
             <ListIcon size={20} />
           </button>
           <button
             onClick={fetchFiles}
-            className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200"
+            className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all duration-200 hover:scale-110 hover:rotate-180"
           >
             <RefreshCw size={20} />
           </button>
         </div>
       </div>
+
+      {analyzing && (
+        <div className="flex items-center gap-3 bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-4">
+          <Loader2 className="animate-spin text-emerald-600" size={20} />
+          <p className="text-sm text-emerald-700 dark:text-emerald-300">
+            Analyzing uploaded dataset and generating insights...
+          </p>
+        </div>
+      )}
 
       {/* File List */}
       {loading ? (
@@ -379,7 +411,7 @@ export function Datasets() {
             <div
               key={file.id}
               onClick={() => setSelectedFile(file)}
-              className="group bg-white dark:bg-zinc-900 rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 hover:border-emerald-500 cursor-pointer transition-all"
+              className="group bg-white dark:bg-zinc-900 rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 hover:border-emerald-500 cursor-pointer transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/10 hover:-translate-y-1"
             >
               {/* Preview */}
               <div className="aspect-square rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-3 overflow-hidden">
@@ -429,7 +461,7 @@ export function Datasets() {
             </thead>
             <tbody>
               {filteredFiles.map(file => (
-                <tr key={file.id} className="border-t dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800">
+                <tr key={file.id} className="border-t dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors duration-200">
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-3">
                       <div className={`p-2 rounded-lg ${CATEGORY_COLORS[file.category]}`}>
@@ -456,14 +488,14 @@ export function Datasets() {
                     <div className="flex justify-end gap-2">
                       <button
                         onClick={() => handleDownload(file)}
-                        className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-lg text-zinc-600"
+                        className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-lg text-zinc-600 transition-all duration-200 hover:scale-110"
                         title="Download"
                       >
                         <Download size={18} />
                       </button>
                       <button
                         onClick={() => handleDelete(file.id)}
-                        className="p-2 hover:bg-red-50 dark:hover:bg-red-950 rounded-lg text-red-600"
+                        className="p-2 hover:bg-red-50 dark:hover:bg-red-950 rounded-lg text-red-600 transition-all duration-200 hover:scale-110"
                         title="Delete"
                       >
                         <Trash2 size={18} />
@@ -474,6 +506,152 @@ export function Datasets() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Analysis Result Modal */}
+      {analysisResult && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          onClick={() => setAnalysisResult(null)}
+        >
+          <div
+            className="bg-white dark:bg-zinc-900 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b dark:border-zinc-800 flex justify-between items-center">
+              <h2 className="text-xl font-semibold dark:text-white flex items-center gap-2">
+                <FileSpreadsheet className="text-emerald-600" size={24} />
+                Dataset Analysis Results
+              </h2>
+              <button
+                onClick={() => setAnalysisResult(null)}
+                className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-all duration-200 hover:scale-110"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {analysisResult.success ? (
+                <>
+
+                  {/* Domain Detection */}
+                  <div className="bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-emerald-700 dark:text-emerald-300 mb-1">Detected Domain</p>
+                        <p className="text-2xl font-bold text-emerald-800 dark:text-emerald-200 capitalize">
+                          {analysisResult.detected_domain}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-emerald-700 dark:text-emerald-300 mb-1">Confidence</p>
+                        <p className="text-2xl font-bold text-emerald-800 dark:text-emerald-200">
+                          {(analysisResult.confidence * 100).toFixed(0)}%
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Summary Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-zinc-50 dark:bg-zinc-800 rounded-xl p-4">
+                      <p className="text-sm text-zinc-500 mb-1">Rows Processed</p>
+                      <p className="text-2xl font-semibold dark:text-white">{analysisResult.rows_predicted}</p>
+                      <p className="text-xs text-zinc-400">of {analysisResult.rows_total} total</p>
+                    </div>
+                    <div className="bg-zinc-50 dark:bg-zinc-800 rounded-xl p-4">
+                      <p className="text-sm text-zinc-500 mb-1">Approval Rate</p>
+                      <p className="text-2xl font-semibold dark:text-white">
+                        {((analysisResult.summary?.approval_rate || 0) * 100).toFixed(0)}%
+                      </p>
+                    </div>
+                    <div className="bg-zinc-50 dark:bg-zinc-800 rounded-xl p-4">
+                      <p className="text-sm text-zinc-500 mb-1">Avg Confidence</p>
+                      <p className="text-2xl font-semibold dark:text-white">
+                        {((analysisResult.summary?.avg_confidence || 0) * 100).toFixed(0)}%
+                      </p>
+                    </div>
+                    <div className="bg-zinc-50 dark:bg-zinc-800 rounded-xl p-4">
+                      <p className="text-sm text-zinc-500 mb-1">Flagged</p>
+                      <p className="text-2xl font-semibold dark:text-white">
+                        {analysisResult.summary?.flagged_for_review || 0}
+                      </p>
+                      <p className="text-xs text-zinc-400">high bias risk</p>
+                    </div>
+                  </div>
+
+                  {/* Column Mapping */}
+                  {analysisResult.column_mapping && (
+                    <div>
+                      <h3 className="font-semibold dark:text-white mb-3">Column Mapping</h3>
+                      <div className="bg-zinc-50 dark:bg-zinc-800 rounded-xl p-4 space-y-2">
+                        {Object.entries(analysisResult.column_mapping).map(([field, col]) => (
+                          <div key={field} className="flex justify-between text-sm">
+                            <span className="text-zinc-500">{field}</span>
+                            <span className="font-medium dark:text-white">→ {col}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Errors */}
+                  {analysisResult.errors && analysisResult.errors.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold dark:text-white mb-3">Errors ({analysisResult.errors.length})</h3>
+                      <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl p-4 max-h-40 overflow-auto">
+                        {analysisResult.errors.slice(0, 5).map((err, i) => (
+                          <p key={i} className="text-sm text-red-700 dark:text-red-300 mb-1">
+                            Row {err.row}: {err.message}
+                          </p>
+                        ))}
+                        {analysisResult.errors.length > 5 && (
+                          <p className="text-sm text-red-600 dark:text-red-400">
+                            ... and {analysisResult.errors.length - 5} more
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Unmapped Columns */}
+                  {analysisResult.unmapped_columns && analysisResult.unmapped_columns.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold dark:text-white mb-3">Unmapped Required Fields</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {analysisResult.unmapped_columns.map((field, i) => (
+                          <span key={i} className="text-sm px-3 py-1 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 rounded-full">
+                            {field}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl p-6">
+                  <AlertCircle className="text-red-600 mb-3" size={32} />
+                  <h3 className="font-semibold text-red-800 dark:text-red-200 mb-2">Analysis Failed</h3>
+                  <p className="text-red-700 dark:text-red-300">{analysisResult.error || 'Unknown error'}</p>
+                </div>
+              )}
+
+              {/* Action */}
+              <div className="pt-4 border-t dark:border-zinc-800">
+                <button
+                  onClick={() => {
+                    setAnalysisResult(null);
+                    window.location.reload();
+                  }}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-medium transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-emerald-500/30"
+                >
+                  View Results on Dashboard
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -570,7 +748,7 @@ export function Datasets() {
               <div className="flex gap-3 pt-4 border-t dark:border-zinc-800">
                 <button
                   onClick={() => handleDownload(selectedFile)}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-medium"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-medium transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-emerald-500/30"
                 >
                   <Download size={20} />
                   Download File
@@ -580,7 +758,7 @@ export function Datasets() {
                     handleDelete(selectedFile.id);
                     setSelectedFile(null);
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-2xl font-medium"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-2xl font-medium transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-red-500/30"
                 >
                   <Trash2 size={20} />
                   Delete File
@@ -594,9 +772,7 @@ export function Datasets() {
       {/* Tips */}
       <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-3xl p-6">
         <p className="text-sm text-blue-800 dark:text-blue-300">
-          Uploaded files are stored for management and review. They do not automatically retrain models or change
-          prediction outputs. To generate live model results, use the prediction forms in Fairness Explorer or domain
-          prediction pages.
+          Data files (CSV, Excel, JSON, Parquet) are <strong>automatically analyzed</strong> after upload — the system detects the domain, maps columns, and runs batch predictions. Results appear in the Dashboard. Other file types are stored for management only.
         </p>
       </div>
 

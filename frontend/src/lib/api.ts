@@ -247,6 +247,28 @@ export interface MitigationMethodInfo {
   best_for: string[];
 }
 
+// ─── Dataset Analysis types ─────────────────────────────────────────────────────
+
+export interface DatasetAnalysisResult {
+  success: boolean;
+  file_id: string;
+  detected_domain: string | null;
+  confidence: number;
+  column_mapping?: Record<string, string>;
+  rows_total: number;
+  rows_predicted: number;
+  rows_failed: number;
+  summary?: {
+    approval_rate: number;
+    avg_confidence: number;
+    high_bias_risk_count: number;
+    flagged_for_review: number;
+  };
+  errors: Array<{ row: number; message: string }>;
+  unmapped_columns?: string[];
+  error?: string;
+}
+
 // ─── API client ───────────────────────────────────────────────────────────────
 
 export const api = {
@@ -315,6 +337,9 @@ export const api = {
       }
       return res.json();
     }),
+
+  analyzeDataset: (fileId: string) =>
+    post<DatasetAnalysisResult>(`/files/analyze/${fileId}`, {}),
 
   // Mitigation (bias reduction algorithms)
   listMitigationMethods: () =>

@@ -36,6 +36,7 @@ router = APIRouter()
 logger = logging.getLogger("insights.router")
 
 _VALID_DOMAINS = frozenset({"hiring", "loan", "social"})
+_MIN_METRICS_RECORDS = 10
 
 
 # ─── Response models ─────────────────────────────────────────────────────────
@@ -82,7 +83,7 @@ class SummaryResponse(BaseModel):
 class BatchFairnessRequest(BaseModel):
     domain:         str = Field(..., pattern=r"^(hiring|loan|social)$")
     sensitive_attr: str = Field(..., min_length=1, max_length=32)
-    limit:          int = Field(default=500, ge=30, le=2000)
+    limit:          int = Field(default=500, ge=_MIN_METRICS_RECORDS, le=2000)
 
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
@@ -123,15 +124,15 @@ async def recent(
 )
 async def summary(
     domain: str,
-    limit:  int = Query(default=500, ge=30, le=2000),
+    limit:  int = Query(default=500, ge=_MIN_METRICS_RECORDS, le=2000),
 ) -> SummaryResponse:
     _validate_domain(domain)
     records = await get_recent_predictions(domain, limit=limit)
 
     notes: List[str] = []
-    if len(records) < 30:
+    if len(records) < _MIN_METRICS_RECORDS:
         notes.append(
-            f"Only {len(records)} record(s) available (minimum 30 for stable metrics)."
+            f"Only {len(records)} record(s) available (minimum {_MIN_METRICS_RECORDS} for stable metrics)."
         )
 
     # Group by sensitive_value_group
@@ -183,7 +184,7 @@ async def summary(
 
     # EOD needs real ground truth — compute only when we have enough labelled
     labelled_total = sum(1 for x in y_true_all if x != -1)
-    if labelled_total >= 30 and len(buckets) >= 2:
+    if labelled_total >= _MIN_METRICS_RECORDS and len(buckets) >= 2:
         ypi, yti, sni = [], [], []
         for p, t, s in zip(y_pred_all, y_true_all, sens_all):
             if t == -1:
@@ -194,13 +195,13 @@ async def summary(
         eod = equal_opportunity_difference(ypi, yti, sni)
     else:
         notes.append(
-            f"Equal Opportunity Difference requires >= 30 labelled records "
+            f"Equal Opportunity Difference requires >= {_MIN_METRICS_RECORDS} labelled records "
             f"(have {labelled_total}). Submit ground-truth via POST /feedback."
         )
 
     # Post-processing (calibration + equalized odds)
     post_proc: Optional[Dict[str, Any]] = None
-    if labelled_total >= 30 and len(buckets) >= 2:
+    if labelled_total >= _MIN_METRICS_RECORDS and len(buckets) >= 2:
         y_prob_lab, y_pred_lab, y_true_lab, sens_lab = [], [], [], []
         for x in records:
             gt = x.get("ground_truth")
@@ -245,7 +246,7 @@ async def fairness_batch(body: BatchFairnessRequest) -> Dict[str, Any]:
     )
 
     labelled = [r for r in records if r.get("ground_truth") is not None]
-    if len(labelled) < 30:
+    if len(labelled) < _MIN_METRICS_RECORDS:
         return {
             "domain":              body.domain,
             "sensitive_attribute": body.sensitive_attr,
@@ -253,7 +254,7 @@ async def fairness_batch(body: BatchFairnessRequest) -> Dict[str, Any]:
             "labelled_count":      len(labelled),
             "is_fair":             None,
             "message": (
-                f"Not enough labelled records ({len(labelled)}/30) to compute "
+                f"Not enough labelled records ({len(labelled)}/{_MIN_METRICS_RECORDS}) to compute "
                 "equal opportunity. Submit ground truths via POST /feedback."
             ),
         }

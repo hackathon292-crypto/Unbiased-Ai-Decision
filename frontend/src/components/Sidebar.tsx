@@ -41,7 +41,7 @@ export function Sidebar({ activePage, setActivePage }: SidebarProps) {
         </div>
         <button 
           onClick={() => setCollapsed(!collapsed)} 
-          className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+          className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-all duration-200 hover:scale-110"
         >
           <Menu size={20} className="dark:text-zinc-400" />
         </button>
@@ -55,10 +55,10 @@ export function Sidebar({ activePage, setActivePage }: SidebarProps) {
             <button
               key={item.id}
               onClick={() => setActivePage(item.id as Page)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left transition-all ${
-                isActive 
-                  ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 font-medium shadow-sm' 
-                  : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left transition-all duration-200 hover:scale-105 ${
+                isActive
+                  ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 font-medium shadow-md'
+                  : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:shadow-md hover:-translate-y-0.5'
               }`}
             >
               <Icon size={20} className="dark:text-zinc-400" />
