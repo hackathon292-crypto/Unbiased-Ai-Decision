@@ -19,3 +19,6 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # Baked-in at build time — Vite embeds this into the JS bundle.
+  # If you rename the Render service, update this URL and redeploy.
+  VITE_API_BASE_URL = "https://quantum-ai-backend.onrender.com"
