@@ -110,27 +110,29 @@ def detect_domain(df: pd.DataFrame) -> Tuple[Optional[str], float, Dict[str, str
     best_mapping = {}
     
     for domain, schema in DOMAIN_SIGNATURES.items():
-        # Normalize schema field names
-        required_normalized = [normalize_column_name(f) for f in schema["required"]]
-        optional_normalized = [normalize_column_name(f) for f in schema["optional"]]
-        all_schema = required_normalized + optional_normalized
-        
-        # Count matches
+        required = list(schema["required"])
+        optional = list(schema["optional"])
+        all_schema = required + optional
+
+        # Count matches — keep the canonical schema field name as the mapping key
+        # so downstream predictors receive the field names they actually expect
+        # (e.g. `years_experience`, not the normalised `yearsexperience`).
         matches = 0
-        mapping = {}
-        for schema_field in all_schema:
-            if schema_field in normalized_set:
+        mapping: Dict[str, str] = {}
+        for canonical in all_schema:
+            norm = normalize_column_name(canonical)
+            if norm in normalized_set:
                 matches += 1
-                mapping[schema_field] = normalized_cols[schema_field]
+                mapping[canonical] = normalized_cols[norm]
             else:
-                # Try fuzzy match
-                close = get_close_matches(schema_field, normalized_set, n=1, cutoff=0.6)
+                # Try fuzzy match against the user-supplied columns
+                close = get_close_matches(norm, normalized_set, n=1, cutoff=0.6)
                 if close:
                     matches += 1
-                    mapping[schema_field] = normalized_cols[close[0]]
-        
+                    mapping[canonical] = normalized_cols[close[0]]
+
         # Score: matches / total required fields (minimum threshold)
-        score = matches / len(required_normalized) if required_normalized else 0
+        score = matches / len(required) if required else 0
         
         if score > best_score:
             best_score = score
@@ -290,11 +292,11 @@ async def batch_predict(
         high_bias_count = 0
         flagged_count = 0
     
-    # Find unmapped columns
+    # Find unmapped columns (compare canonical names on both sides)
     mapped_schema_fields = set(column_mapping.keys())
-    all_schema_fields = set()
-    for schema in DOMAIN_SIGNATURES[domain]["required"] + DOMAIN_SIGNATURES[domain]["optional"]:
-        all_schema_fields.add(normalize_column_name(schema))
+    all_schema_fields = set(
+        DOMAIN_SIGNATURES[domain]["required"] + DOMAIN_SIGNATURES[domain]["optional"]
+    )
     unmapped_schema = all_schema_fields - mapped_schema_fields
     
     return {
