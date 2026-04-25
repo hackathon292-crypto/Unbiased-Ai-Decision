@@ -27,26 +27,31 @@ function App() {
   // Incremented every time "New Scan" is clicked. Datasets page watches this
   // and auto-scans every uploaded file + analyzes datasets without manual setup.
   const [scanTrigger, setScanTrigger] = useState(0);
+  const [dataRefreshKey, setDataRefreshKey] = useState(0);
 
   const handleNewScan = () => {
     setActivePage('datasets');
     setScanTrigger((n) => n + 1);
   };
 
+  const handleScanComplete = () => {
+    setDataRefreshKey((n) => n + 1);
+  };
+
   const renderPage = () => {
     switch (activePage) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard refreshKey={dataRefreshKey} />;
       case 'datasets':
-        return <Datasets scanTrigger={scanTrigger} />;
+        return <Datasets scanTrigger={scanTrigger} onScanComplete={handleScanComplete} />;
       case 'bias-detection':
-        return <BiasDetection />;
+        return <BiasDetection refreshKey={dataRefreshKey} onScanComplete={handleScanComplete} />;
       case 'fairness-explorer':
         return <FairnessExplorer />;
       case 'mitigation-lab':
         return <MitigationLab />;
       case 'reports':
-        return <Reports />;
+        return <Reports refreshKey={dataRefreshKey} />;
       case 'settings':
         return <Settings />;
       case 'hiring-prediction':
@@ -54,7 +59,7 @@ function App() {
       case 'social-recommendation':
         return <SocialRecommendation />;
       default:
-        return <Dashboard />;
+        return <Dashboard refreshKey={dataRefreshKey} />;
     }
   };
 

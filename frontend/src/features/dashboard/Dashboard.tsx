@@ -19,7 +19,7 @@ const DOMAINS: DomainConfig[] = [
   { id: 'social', label: 'Social Recommend', icon: Share2, color: 'violet' },
 ];
 
-function useDomainSummary(domain: Domain) {
+function useDomainSummary(domain: Domain, refreshKey: number) {
   const [data, setData] = useState<SummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -34,14 +34,14 @@ function useDomainSummary(domain: Domain) {
         setError(true);
       })
       .finally(() => setLoading(false));
-  }, [domain]);
+  }, [domain, refreshKey]);
   
   return { data, loading, error };
 }
 
-export function Dashboard() {
+export function Dashboard({ refreshKey = 0 }: { refreshKey?: number }) {
   const [activeDomain, setActiveDomain] = useState<Domain>('loan');
-  const { data, loading, error } = useDomainSummary(activeDomain);
+  const { data, loading, error } = useDomainSummary(activeDomain, refreshKey);
 
   const dpd   = data?.demographic_parity_difference ?? null;
   const eod   = data?.equal_opportunity_difference  ?? null;

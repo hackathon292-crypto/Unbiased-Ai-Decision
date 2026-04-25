@@ -26,5 +26,6 @@ pyarrow==15.0.0       # Parquet file support
 pillow==10.3.0        # Image metadata (width/height/mode) for /files/inspect
 pypdf==4.2.0          # PDF page count + first-page text for /files/inspect
 PyYAML==6.0.1         # YAML structure inspection
+python-docx==1.1.2    # DOCX text extraction for /files/inspect
 
 # Dev/test deps live in requirements-dev.txt so production images stay lean.

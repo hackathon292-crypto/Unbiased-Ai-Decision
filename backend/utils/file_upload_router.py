@@ -6,14 +6,13 @@ Supports: Images, PDFs, Docs, CSV, JSON, Parquet, Excel, Text files
 from __future__ import annotations
 
 import os
+import json
 import uuid
-import shutil
 from pathlib import Path
 from typing import List, Optional
-from datetime import datetime
-from dataclasses import dataclass, asdict
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Form, Query
+from fastapi import APIRouter, UploadFile, File, HTTPException, Form, Query, Body
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
@@ -32,6 +31,8 @@ ALLOWED_EXTENSIONS = {
     ".csv", ".xls", ".xlsx", ".ods",
     # Data formats
     ".json", ".parquet", ".xml", ".yaml", ".yml",
+    # Model formats
+    ".pkl", ".joblib",
     # Archives (optional)
     ".zip", ".tar", ".gz", ".bz2",
     # Code/Text files
@@ -70,6 +71,8 @@ class FileMetadata(BaseModel):
     uploaded_at: str = Field(..., description="Upload timestamp ISO format")
     description: Optional[str] = Field(None, description="User-provided description")
     tags: List[str] = Field(default_factory=list, description="User-provided tags")
+    domain: Optional[str] = Field(None, description="Associated domain when known")
+    role: Optional[str] = Field(None, description="Best-effort role: dataset, model, document, other")
 
 
 class FileListResponse(BaseModel):
@@ -88,6 +91,23 @@ class FileDeleteResponse(BaseModel):
     success: bool
     message: str
     deleted_id: str
+
+
+class ScanRequest(BaseModel):
+    domain: Optional[str] = Field(default=None, pattern=r"^(hiring|loan|social)$")
+    file_id: Optional[str] = None
+    max_rows: int = Field(default=10000, ge=1, le=50000)
+
+
+def infer_file_role(filename: str, ext: str) -> str:
+    lowered = filename.lower()
+    if ext in {".csv", ".xls", ".xlsx", ".ods", ".json", ".parquet"}:
+        return "dataset"
+    if ext in {".pkl", ".joblib"} or "model" in lowered:
+        return "model"
+    if ext in {".pdf", ".doc", ".docx", ".txt", ".rtf", ".odt"}:
+        return "document"
+    return "other"
 
 
 def get_file_category(ext: str) -> str:
@@ -176,9 +196,11 @@ async def upload_file(
         mime_type=MIME_TYPES.get(ext, "application/octet-stream"),
         category=get_file_category(ext),
         extension=ext,
-        uploaded_at=datetime.utcnow().isoformat(),
+        uploaded_at=datetime.now(timezone.utc).isoformat(),
         description=description,
         tags=[t.strip() for t in (tags or "").split(",") if t.strip()],
+        domain=domain,
+        role=infer_file_role(file.filename, ext),
     )
     
     # Save metadata to JSON
@@ -430,3 +452,105 @@ async def analyze_file(file_id: str):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+
+@router.post("/scan")
+async def scan_files(body: ScanRequest = Body(default_factory=ScanRequest)):
+    """
+    Run the full automated scan pipeline and generate a final report.
+    """
+    from .dataset_analyzer import (
+        analyze_uploaded_file,
+        choose_best_model_file,
+        detect_domain,
+        read_tabular_file,
+    )
+
+    meta_files = sorted(UPLOAD_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not meta_files:
+        raise HTTPException(status_code=404, detail="No uploaded files available to scan.")
+
+    entries: List[dict] = []
+    for meta_path in meta_files:
+        try:
+            with open(meta_path, "r", encoding="utf-8") as handle:
+                entries.append(json.load(handle))
+        except Exception:
+            continue
+
+    if body.file_id:
+        entries = [item for item in entries if item.get("id") == body.file_id]
+        if not entries:
+            raise HTTPException(status_code=404, detail=f"Uploaded file '{body.file_id}' not found.")
+
+    dataset_files = [item for item in entries if item.get("role") == "dataset" or item.get("category") == "data"]
+    model_files = [item for item in entries if item.get("role") == "model" or item.get("extension") in {".pkl", ".joblib"}]
+    document_files = [item for item in entries if item.get("category") == "document"]
+
+    if not dataset_files:
+        raise HTTPException(
+            status_code=400,
+            detail="No uploaded dataset found. Upload a CSV, Excel, JSON, Parquet, or ODS file first.",
+        )
+
+    selected_dataset: Optional[dict] = None
+    selected_domain: Optional[str] = body.domain
+
+    for candidate in dataset_files:
+        if body.domain and candidate.get("domain") == body.domain:
+            selected_dataset = candidate
+            selected_domain = body.domain
+            break
+
+        file_path = UPLOAD_DIR / candidate["stored_name"]
+        try:
+            df = read_tabular_file(file_path, candidate["extension"])
+            inferred_domain, _, _ = detect_domain(df)
+        except Exception:
+            inferred_domain = None
+
+        if body.domain:
+            if inferred_domain == body.domain:
+                selected_dataset = candidate
+                selected_domain = body.domain
+                break
+        elif inferred_domain:
+            selected_dataset = candidate
+            selected_domain = inferred_domain
+            break
+
+    if selected_dataset is None:
+        selected_dataset = dataset_files[0]
+        selected_domain = selected_dataset.get("domain") or selected_domain
+
+    analysis = await analyze_uploaded_file(
+        file_id=selected_dataset["id"],
+        upload_dir=UPLOAD_DIR,
+        max_rows=body.max_rows,
+        model_file=choose_best_model_file(model_files, selected_domain, UPLOAD_DIR) if selected_domain else None,
+    )
+
+    return JSONResponse(
+        content={
+            "success": bool(analysis.get("success")),
+            "dataset": {
+                "id": selected_dataset.get("id"),
+                "filename": selected_dataset.get("filename"),
+                "domain": analysis.get("detected_domain"),
+            },
+            "model": analysis.get("model"),
+            "report": analysis.get("report"),
+            "scores": analysis.get("scores"),
+            "summary": analysis.get("summary"),
+            "validation": analysis.get("validation"),
+            "performance": analysis.get("performance"),
+            "fairness": analysis.get("fairness"),
+            "analysis": analysis,
+            "documents_scanned": len(document_files),
+            "message": (
+                "Scan complete. Final report generated and dashboard data refreshed."
+                if analysis.get("success")
+                else analysis.get("error", "Scan failed.")
+            ),
+        }
+    )

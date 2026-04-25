@@ -37,6 +37,8 @@ const ALLOWED_TYPES = [
   '.csv', '.xls', '.xlsx', '.ods',
   // Data formats
   '.json', '.parquet', '.xml', '.yaml', '.yml',
+  // Model formats
+  '.pkl', '.joblib',
   // Archives
   '.zip', '.tar', '.gz', '.bz2',
   // Code/Text
@@ -50,9 +52,10 @@ interface DatasetsProps {
    * "New Scan" button in TopNavbar.
    */
   scanTrigger?: number;
+  onScanComplete?: () => void;
 }
 
-export function Datasets({ scanTrigger = 0 }: DatasetsProps) {
+export function Datasets({ scanTrigger = 0, onScanComplete }: DatasetsProps) {
   // Upload states
   const [dragActive, setDragActive] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<Map<string, { name: string; progress: number }>>(new Map());
@@ -234,6 +237,7 @@ export function Datasets({ scanTrigger = 0 }: DatasetsProps) {
     try {
       const result = await api.analyzeDataset(fileId);
       setAnalysisResult(result);
+      if (result.success) onScanComplete?.();
       return result;
     } catch (err) {
       alert('Analysis failed: ' + (err as Error).message);
@@ -323,6 +327,9 @@ export function Datasets({ scanTrigger = 0 }: DatasetsProps) {
         analyses: analysisResults,
         insights,
       });
+      if (analysisResults.some(({ result }) => result.success)) {
+        onScanComplete?.();
+      }
     } catch (err) {
       alert('Scan failed: ' + (err as Error).message);
     } finally {
@@ -410,7 +417,7 @@ export function Datasets({ scanTrigger = 0 }: DatasetsProps) {
             {dragActive ? 'Drop files here' : 'Drag & drop any files'}
           </h3>
           <p className="text-zinc-500 mt-2">
-            Images, PDFs, Word docs, Excel, CSV, JSON, ZIP, and more
+            Images, PDFs, Word docs, Excel, CSV, JSON, PKL, Joblib, ZIP, and more
           </p>
           
           {/* Upload Options */}
@@ -1202,6 +1209,15 @@ function InspectionPanel({ inspection, allInspections, onSelect, onClose }: Insp
             <InfoTile label="Height" value={`${inspection.height ?? '-'} px`} />
             <InfoTile label="Mode" value={inspection.mode ?? '-'} />
             <InfoTile label="Format" value={inspection.format ?? '-'} />
+          </div>
+        )}
+
+        {inspection.kind === 'model' && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <InfoTile label="Model Type" value={inspection.model_type ?? '-'} />
+            <InfoTile label="Module" value={inspection.module ?? '-'} />
+            <InfoTile label="Features" value={inspection.n_features_in != null ? String(inspection.n_features_in) : '-'} />
+            <InfoTile label="Probabilities" value={inspection.has_predict_proba ? 'Yes' : 'No'} />
           </div>
         )}
 

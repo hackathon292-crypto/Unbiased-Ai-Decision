@@ -133,6 +133,44 @@ class TestSecurityAndInternal:
             assert app_client.post("/hiring/predict", json=HIRING_PAYLOAD).status_code == 200
 
 
+class TestFileScanPipeline:
+
+    def test_upload_and_scan_generates_final_report(self, app_client):
+        csv_data = (
+            "credit_score,annual_income,loan_amount,loan_term_months,employment_years,"
+            "existing_debt,num_credit_lines,gender,ground_truth\n"
+            "720,85000,20000,36,5,5000,4,Female,1\n"
+            "640,50000,30000,60,2,18000,3,Male,0\n"
+            "780,95000,15000,24,6,2000,5,Female,1\n"
+        )
+
+        upload = app_client.post(
+            "/files/upload",
+            files={"file": ("loan_scan.csv", csv_data.encode(), "text/csv")},
+            data={"domain": "loan"},
+        )
+        assert upload.status_code == 200
+        file_id = upload.json()["file"]["id"]
+
+        with patch("utils.dataset_analyzer.save_prediction") as save_prediction_mock:
+            scan = app_client.post("/files/scan", json={"domain": "loan", "file_id": file_id})
+
+        assert scan.status_code == 200
+        data = scan.json()
+        assert data["success"] is True
+        assert data["dataset"]["domain"] == "loan"
+        assert data["scores"]["final_recommendation"] in ("Accept", "Reject", "Retrain")
+        assert set(data["scores"].keys()) == {
+            "bias_score",
+            "fairness_score",
+            "performance_score",
+            "risk_score",
+            "final_recommendation",
+        }
+        assert "validation" in data and "performance" in data and "fairness" in data
+        assert save_prediction_mock.await_count >= 1
+
+
 # -----------------------------------------------------------------------------
 # Fixtures (Payloads)
 # -----------------------------------------------------------------------------

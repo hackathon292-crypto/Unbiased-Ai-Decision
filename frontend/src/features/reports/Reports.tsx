@@ -35,7 +35,7 @@ function buildSummary(s: SummaryResponse): string {
   return `${level} (DPD=${Math.abs(dpd).toFixed(2)}). Groups: ${grps}. Records: ${s.n_records}.`;
 }
 
-export function Reports() {
+export function Reports({ refreshKey = 0 }: { refreshKey?: number }) {
   const [summaries, setSummaries] = useState<Partial<Record<Domain, SummaryResponse>>>({});
   const [loading, setLoading]     = useState(true);
   const [refreshed, setRefreshed] = useState(new Date());
@@ -50,7 +50,7 @@ export function Reports() {
     setRefreshed(new Date());
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => { fetchAll(); }, [refreshKey]);
 
   const reports = DOMAINS.map((domain, idx) => {
     const s = summaries[domain];
@@ -91,7 +91,7 @@ export function Reports() {
 
   useEffect(() => {
     fetchRecentPredictions();
-  }, []);
+  }, [refreshKey]);
 
   const handleRefreshAll = () => {
     fetchAll();

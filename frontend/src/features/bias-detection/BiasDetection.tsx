@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Target, Play, AlertTriangle, Briefcase, DollarSign, Share2, Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { api } from '../../lib/api';
-import type { SummaryResponse } from '../../lib/api';
+import type { FullScanResponse, SummaryResponse } from '../../lib/api';
 
 type Domain = 'loan' | 'hiring' | 'social';
 
@@ -28,17 +28,30 @@ const MOCK_METRICS = [
   { group: 'Age >60', approval: 48, parityGap: 0.22, equalOpp: 0.18 },
 ];
 
-export function BiasDetection() {
+interface BiasDetectionProps {
+  refreshKey?: number;
+  onScanComplete?: () => void;
+}
+
+export function BiasDetection({ refreshKey = 0, onScanComplete }: BiasDetectionProps) {
   const [activeDomain, setActiveDomain] = useState<Domain>('loan');
   const [selectedGroups, setSelectedGroups] = useState<string[]>(['Gender', 'Age Group']);
   const [isScanning, setIsScanning] = useState(false);
   const [liveData, setLiveData] = useState<SummaryResponse | null>(null);
+  const [scanResult, setScanResult] = useState<FullScanResponse | null>(null);
+
+  useEffect(() => {
+    api.getSummary(activeDomain).then(setLiveData).catch(() => setLiveData(null));
+  }, [activeDomain, refreshKey]);
 
   const runScan = async () => {
     setIsScanning(true);
     try {
-      const result = await api.getSummary(activeDomain);
-      setLiveData(result);
+      const result = await api.scanFiles({ domain: activeDomain });
+      setScanResult(result);
+      const summary = await api.getSummary(activeDomain);
+      setLiveData(summary);
+      onScanComplete?.();
     } catch {
       // silently fall back to mock data
     } finally {
@@ -68,6 +81,14 @@ export function BiasDetection() {
 
   const highBias = metricsData.find(m => m.parityGap > 0.15);
   const activeDomainConfig = DOMAINS.find(d => d.id === activeDomain);
+  const scoreTiles = scanResult?.scores
+    ? [
+        { label: 'Bias Score', value: Math.round(scanResult.scores.bias_score) },
+        { label: 'Fairness Score', value: Math.round(scanResult.scores.fairness_score) },
+        { label: 'Performance Score', value: Math.round(scanResult.scores.performance_score) },
+        { label: 'Risk Score', value: Math.round(scanResult.scores.risk_score) },
+      ]
+    : [];
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -103,6 +124,7 @@ export function BiasDetection() {
               onClick={() => {
                 setActiveDomain(domain.id);
                 setLiveData(null);
+                setScanResult(null);
               }}
               className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-medium transition-all ${
                 isActive
@@ -178,6 +200,36 @@ export function BiasDetection() {
           </div>
         </div>
       </div>
+
+      {scanResult?.scores && (
+        <div className="bg-white dark:bg-zinc-900 rounded-3xl p-8 border border-zinc-200 dark:border-zinc-800">
+          <div className="flex flex-wrap items-start justify-between gap-6">
+            <div>
+              <h2 className="text-xl font-semibold dark:text-white">Final Report</h2>
+              <p className="text-zinc-600 dark:text-zinc-400 mt-1">
+                {scanResult.message}
+              </p>
+            </div>
+            <div className={`px-4 py-2 rounded-2xl font-medium ${
+              scanResult.scores.final_recommendation === 'Accept'
+                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                : scanResult.scores.final_recommendation === 'Reject'
+                ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
+                : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+            }`}>
+              {scanResult.scores.final_recommendation}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+            {scoreTiles.map((tile) => (
+              <div key={tile.label} className="rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4">
+                <div className="text-sm text-zinc-500 dark:text-zinc-400">{tile.label}</div>
+                <div className="text-3xl font-semibold dark:text-white mt-2">{tile.value}<span className="text-base text-zinc-400">/100</span></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Results Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

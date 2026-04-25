@@ -192,6 +192,8 @@ export interface FileMetadata {
   uploaded_at: string;
   description?: string;
   tags: string[];
+  domain?: 'hiring' | 'loan' | 'social' | null;
+  role?: 'dataset' | 'model' | 'document' | 'other' | null;
 }
 
 export interface FileUploadResponse {
@@ -264,7 +266,7 @@ export interface FileInspectionResult {
   category: string;
   size_bytes: number;
   size_human: string;
-  kind: 'tabular' | 'json' | 'yaml' | 'xml' | 'text' | 'image' | 'pdf' | 'binary' | 'unknown';
+  kind: 'tabular' | 'json' | 'yaml' | 'xml' | 'text' | 'image' | 'pdf' | 'model' | 'binary' | 'unknown';
   // tabular
   rows?: number;
   columns_count?: number;
@@ -295,6 +297,12 @@ export interface FileInspectionResult {
   error?: string;
   root_tag?: string;
   child_count?: number;
+  // model
+  model_type?: string;
+  module?: string;
+  n_features_in?: number;
+  classes?: string[];
+  has_predict_proba?: boolean;
 }
 
 // ─── Dataset Analysis types ─────────────────────────────────────────────────────
@@ -314,9 +322,43 @@ export interface DatasetAnalysisResult {
     high_bias_risk_count: number;
     flagged_for_review: number;
   };
+  validation?: Record<string, unknown>;
+  performance?: Record<string, unknown>;
+  fairness?: Record<string, unknown>;
+  scores?: {
+    bias_score: number;
+    fairness_score: number;
+    performance_score: number;
+    risk_score: number;
+    final_recommendation: 'Accept' | 'Reject' | 'Retrain';
+  };
+  report?: Record<string, unknown>;
+  target_column?: string | null;
+  sensitive_columns?: Record<string, string>;
+  model?: Record<string, unknown>;
+  results_preview?: Array<Record<string, unknown>>;
   errors: Array<{ row: number; message: string }>;
   unmapped_columns?: string[];
   error?: string;
+}
+
+export interface FullScanResponse {
+  success: boolean;
+  dataset: {
+    id: string;
+    filename: string;
+    domain: string | null;
+  };
+  model?: Record<string, unknown>;
+  report?: Record<string, unknown>;
+  scores?: DatasetAnalysisResult['scores'];
+  summary?: DatasetAnalysisResult['summary'];
+  validation?: Record<string, unknown>;
+  performance?: Record<string, unknown>;
+  fairness?: Record<string, unknown>;
+  analysis: DatasetAnalysisResult;
+  documents_scanned: number;
+  message: string;
 }
 
 // ─── API client ───────────────────────────────────────────────────────────────
@@ -390,6 +432,9 @@ export const api = {
 
   analyzeDataset: (fileId: string) =>
     post<DatasetAnalysisResult>(`/files/analyze/${fileId}`, {}),
+
+  scanFiles: (body: { domain?: 'hiring' | 'loan' | 'social'; file_id?: string; max_rows?: number }) =>
+    post<FullScanResponse>("/files/scan", body),
 
   inspectFile: (fileId: string) =>
     get<FileInspectionResult>(`/files/inspect/${fileId}`),

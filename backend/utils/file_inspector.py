@@ -32,6 +32,7 @@ TEXT_EXTENSIONS = {
 }
 TABULAR_EXTENSIONS = {".csv", ".xls", ".xlsx", ".parquet", ".ods"}
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".ico"}
+MODEL_EXTENSIONS = {".pkl", ".joblib"}
 
 MAX_PREVIEW_CHARS = 2000
 MAX_PREVIEW_ROWS = 10
@@ -250,6 +251,39 @@ def _inspect_pdf(path: Path) -> Dict[str, Any]:
     return summary
 
 
+def _inspect_docx(path: Path) -> Dict[str, Any]:
+    summary: Dict[str, Any] = {"kind": "text"}
+    try:
+        from docx import Document  # type: ignore
+
+        document = Document(str(path))
+        paragraphs = [paragraph.text for paragraph in document.paragraphs if paragraph.text.strip()]
+        text = "\n".join(paragraphs)
+        summary.update(_inspect_text_bytes(text))
+        summary["note"] = "Extracted from DOCX document"
+    except Exception as e:
+        summary["note"] = f"DOCX extraction unavailable: {e}"
+    return summary
+
+
+def _inspect_model(path: Path) -> Dict[str, Any]:
+    summary: Dict[str, Any] = {"kind": "model"}
+    try:
+        import joblib
+
+        model = joblib.load(path)
+        summary["model_type"] = type(model).__name__
+        summary["module"] = type(model).__module__
+        if hasattr(model, "n_features_in_"):
+            summary["n_features_in"] = int(getattr(model, "n_features_in_"))
+        if hasattr(model, "classes_"):
+            summary["classes"] = [str(value) for value in list(getattr(model, "classes_"))[:20]]
+        summary["has_predict_proba"] = bool(hasattr(model, "predict_proba"))
+    except Exception as e:
+        summary["note"] = f"Model inspection failed: {e}"
+    return summary
+
+
 # ─── Entry point ────────────────────────────────────────────────────────────
 
 def inspect_file(file_path: Path, metadata: Dict[str, Any]) -> Dict[str, Any]:
@@ -281,6 +315,10 @@ def inspect_file(file_path: Path, metadata: Dict[str, Any]) -> Dict[str, Any]:
             return {**base, **_inspect_image(file_path)}
         if ext == ".pdf":
             return {**base, **_inspect_pdf(file_path)}
+        if ext == ".docx":
+            return {**base, **_inspect_docx(file_path)}
+        if ext in MODEL_EXTENSIONS:
+            return {**base, **_inspect_model(file_path)}
     except Exception as e:
         logger.warning(f"Inspection failed for {file_path}: {e}")
         return {**base, "kind": "unknown", "error": str(e)[:200]}
