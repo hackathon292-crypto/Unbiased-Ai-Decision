@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Share2, AlertTriangle, CheckCircle, XCircle, Loader2, Eye, ThumbsUp, MessageSquare, Repeat } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../../lib/api';
 import type { SocialResponse } from '../../lib/api';
+import { useScanContext } from '../../components/ScanProvider';
 
 interface SocialFormData {
   avg_session_minutes: number;
@@ -38,12 +39,29 @@ const CONTENT_CATEGORIES = [
 ];
 
 export function SocialRecommendation() {
+  const { profiles, lastUpdated } = useScanContext();
   const [formData, setFormData] = useState<SocialFormData>(INITIAL_FORM);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<SocialResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shapData, setShapData] = useState<Record<string, number> | null>(null);
   const [shapLoading, setShapLoading] = useState(false);
+
+  useEffect(() => {
+    setFormData({
+      avg_session_minutes: profiles.social.avg_session_minutes,
+      posts_per_day: profiles.social.posts_per_day,
+      topics_interacted: profiles.social.topics_interacted,
+      like_rate: profiles.social.like_rate,
+      share_rate: profiles.social.share_rate,
+      comment_rate: profiles.social.comment_rate,
+      account_age_days: profiles.social.account_age_days,
+      gender: profiles.social.gender,
+      age_group: profiles.social.age_group,
+      location: profiles.social.location,
+      language: profiles.social.language,
+    });
+  }, [profiles.social, lastUpdated]);
 
   const handleInputChange = (field: keyof SocialFormData, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));

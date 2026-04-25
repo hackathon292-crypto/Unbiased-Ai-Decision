@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import type { FileMetadata, FileStats, DatasetAnalysisResult, FileInspectionResult } from '../../lib/api';
+import { useScanContext } from '../../components/ScanProvider';
 
 type ViewMode = 'grid' | 'list';
 type FileCategory = 'all' | 'image' | 'document' | 'data' | 'archive' | 'other';
@@ -56,6 +57,7 @@ interface DatasetsProps {
 }
 
 export function Datasets({ scanTrigger = 0, onScanComplete }: DatasetsProps) {
+  const { ingestScanArtifacts } = useScanContext();
   // Upload states
   const [dragActive, setDragActive] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<Map<string, { name: string; progress: number }>>(new Map());
@@ -199,14 +201,33 @@ export function Datasets({ scanTrigger = 0, onScanComplete }: DatasetsProps) {
       // auto-detects the domain and reflects it in the form field below.
       const dataFiles = uploadedFiles.filter(f => f.category === 'data');
       if (dataFiles.length > 0) {
-        const analysis = await handleAnalyze(dataFiles[0].id);
-        if (analysis?.detected_domain) {
-          const d = analysis.detected_domain;
+        const analysisResults: DatasetAnalysisResult[] = [];
+        for (const dataFile of dataFiles) {
+          const analysis = await handleAnalyze(dataFile.id);
+          if (analysis) analysisResults.push(analysis);
+        }
+        const primaryAnalysis = analysisResults.find((item) => item.success) ?? analysisResults[0] ?? null;
+        if (primaryAnalysis) {
+          setAnalysisResult(primaryAnalysis);
+        }
+        const detected = analysisResults.find((item) => item.detected_domain)?.detected_domain;
+        if (detected) {
+          const d = detected;
           if (d === 'loan' || d === 'hiring' || d === 'social') {
             setDomain(d);
           }
         }
+        await ingestScanArtifacts({
+          inspections: inspectionResults,
+          analyses: analysisResults.map((result) => ({ result })),
+        });
+      } else {
+        await ingestScanArtifacts({
+          inspections: inspectionResults,
+          analyses: [],
+        });
       }
+      onScanComplete?.();
     } catch (err) {
       alert('Some files failed to upload. Please try again.');
     }
@@ -327,9 +348,12 @@ export function Datasets({ scanTrigger = 0, onScanComplete }: DatasetsProps) {
         analyses: analysisResults,
         insights,
       });
-      if (analysisResults.some(({ result }) => result.success)) {
-        onScanComplete?.();
-      }
+      await ingestScanArtifacts({
+        inspections: inspectionResults,
+        analyses: analysisResults.map(({ result }) => ({ result })),
+        insights,
+      });
+      onScanComplete?.();
     } catch (err) {
       alert('Scan failed: ' + (err as Error).message);
     } finally {
@@ -1106,6 +1130,28 @@ function InspectionPanel({ inspection, allInspections, onSelect, onClose }: Insp
             }
           />
         </div>
+
+        {(inspection.inferred_domain || inspection.suggested_parameters) && (
+          <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950 p-4">
+            <div className="flex flex-wrap items-center gap-3 mb-3">
+              <span className="text-sm text-emerald-700 dark:text-emerald-300">Auto Inference</span>
+              {inspection.inferred_domain && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-300 capitalize">
+                  {inspection.inferred_domain}
+                </span>
+              )}
+            </div>
+            {inspection.suggested_parameters && Object.keys(inspection.suggested_parameters).length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(inspection.suggested_parameters).map(([key, value]) => (
+                  <span key={key} className="text-xs px-2 py-1 rounded-full bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300">
+                    {key}: {String(value)}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {inspection.kind === 'tabular' && inspection.columns && inspection.columns.length > 0 && (
           <>

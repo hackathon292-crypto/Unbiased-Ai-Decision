@@ -1,0 +1,9 @@
+credit_score,annual_income,loan_amount,loan_term_months,employment_years,existing_debt,num_credit_lines,gender,age_group,ethnicity,ground_truth
+720,85000,20000,36,5,5000,4,female,26-40,asian,1
+610,42000,25000,48,1,16000,2,male,18-25,black,0
+780,95000,15000,24,6,2000,5,female,41-60,white,1
+640,50000,30000,60,2,18000,3,male,26-40,hispanic,0
+690,73000,22000,36,4,6000,4,female,26-40,asian,1
+580,36000,28000,72,1,19000,2,male,18-25,white,0
+750,102000,18000,24,7,3500,6,female,41-60,hispanic,1
+665,58000,24000,48,3,9000,3,male,26-40,black,1

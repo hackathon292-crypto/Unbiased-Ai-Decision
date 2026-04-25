@@ -537,6 +537,31 @@ def _performance_report(
     return report
 
 
+def _build_suggested_profile(
+    df: pd.DataFrame,
+    domain: str,
+    column_mapping: Dict[str, str],
+    sensitive_columns: Dict[str, str],
+) -> Dict[str, Any]:
+    suggested: Dict[str, Any] = {}
+    for feature, default in DEFAULT_FEATURE_VALUES[domain].items():
+        source_col = column_mapping.get(feature)
+        if source_col and source_col in df.columns:
+            series = pd.to_numeric(df[source_col], errors="coerce").dropna()
+            if not series.empty:
+                median_value = float(series.median())
+                suggested[feature] = int(median_value) if float(median_value).is_integer() else round(median_value, 4)
+                continue
+        suggested[feature] = default
+
+    for sensitive_name, source_col in sensitive_columns.items():
+        series = df[source_col].dropna()
+        if not series.empty:
+            suggested[sensitive_name] = str(series.astype(str).mode().iloc[0])
+
+    return suggested
+
+
 def _fairness_report(
     domain: str,
     df: pd.DataFrame,
@@ -815,6 +840,7 @@ async def batch_predict(
     robustness = _calculate_robustness(selection.model, features_df)
     performance = _performance_report(domain, y_true, predictions, confidences, robustness)
     scores = _score_report(validation, performance, fairness)
+    suggested_profile = _build_suggested_profile(working_df, domain, column_mapping, sensitive_columns)
 
     rows_total = int(len(working_df))
     rows_predicted = int(len(results))
@@ -852,6 +878,7 @@ async def batch_predict(
         "sensitive_columns": sensitive_columns,
         "unmapped_schema_fields": sorted(set(DEFAULT_FEATURE_VALUES[domain].keys()) - set(column_mapping.keys())),
         "final_report": final_report,
+        "suggested_profile": suggested_profile,
     }
 
 
@@ -934,4 +961,5 @@ async def analyze_uploaded_file(
         "errors": summary["errors"],
         "unmapped_columns": summary["unmapped_schema_fields"],
         "results_preview": summary["results_preview"],
+        "suggested_profile": summary["suggested_profile"],
     }

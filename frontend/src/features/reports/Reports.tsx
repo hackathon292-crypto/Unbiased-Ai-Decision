@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { FileText, Download, Calendar, Eye, CheckCircle, RefreshCw, History, AlertTriangle } from 'lucide-react';
 import { api } from '../../lib/api';
 import type { SummaryResponse } from '../../lib/api';
+import { useScanContext } from '../../components/ScanProvider';
 
 interface PredictionRecord {
   correlation_id: string | null;
@@ -36,6 +37,7 @@ function buildSummary(s: SummaryResponse): string {
 }
 
 export function Reports({ refreshKey = 0 }: { refreshKey?: number }) {
+  const { insights: autoInsights, autoPredictions, lastUpdated } = useScanContext();
   const [summaries, setSummaries] = useState<Partial<Record<Domain, SummaryResponse>>>({});
   const [loading, setLoading]     = useState(true);
   const [refreshed, setRefreshed] = useState(new Date());
@@ -141,6 +143,45 @@ export function Reports({ refreshKey = 0 }: { refreshKey?: number }) {
           </div>
         </div>
       </div>
+
+      {(autoInsights.length > 0 || Object.keys(autoPredictions).length > 0) && (
+        <div className="bg-white dark:bg-zinc-900 rounded-3xl p-8 border border-zinc-200 dark:border-zinc-800">
+          <div className="flex items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-xl font-semibold dark:text-white">Automatic System Insights</h2>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                Generated from the latest uploaded files{lastUpdated ? ` • ${new Date(lastUpdated).toLocaleString()}` : ''}
+              </p>
+            </div>
+          </div>
+
+          {Object.keys(autoPredictions).length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              {Object.values(autoPredictions).map((prediction) => prediction && (
+                <div key={prediction.domain} className="rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4">
+                  <div className="text-sm text-zinc-500 dark:text-zinc-400 capitalize">{prediction.domain}</div>
+                  <div className="text-lg font-semibold dark:text-white mt-1">{prediction.label}</div>
+                  <div className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                    Confidence {Math.round(prediction.confidence * 100)}%
+                    {prediction.biasRisk != null ? ` • Bias ${Math.round(prediction.biasRisk * 100)}/100` : ''}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {autoInsights.length > 0 && (
+            <ul className="space-y-2">
+              {autoInsights.map((line, idx) => (
+                <li key={`${idx}-${line}`} className="flex gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                  <span className="text-emerald-600 mt-0.5">•</span>
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Reports List */}
       <div className="bg-white dark:bg-zinc-900 rounded-3xl p-8 border border-zinc-200 dark:border-zinc-800">

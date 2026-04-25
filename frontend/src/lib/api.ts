@@ -303,6 +303,8 @@ export interface FileInspectionResult {
   n_features_in?: number;
   classes?: string[];
   has_predict_proba?: boolean;
+  inferred_domain?: 'hiring' | 'loan' | 'social';
+  suggested_parameters?: Record<string, string | number>;
 }
 
 // ─── Dataset Analysis types ─────────────────────────────────────────────────────
@@ -337,6 +339,7 @@ export interface DatasetAnalysisResult {
   sensitive_columns?: Record<string, string>;
   model?: Record<string, unknown>;
   results_preview?: Array<Record<string, unknown>>;
+  suggested_profile?: Record<string, string | number>;
   errors: Array<{ row: number; message: string }>;
   unmapped_columns?: string[];
   error?: string;

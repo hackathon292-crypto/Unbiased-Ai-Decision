@@ -1,0 +1,9 @@
+years_experience,education_level,technical_score,communication_score,num_past_jobs,certifications,gender,ethnicity,ground_truth
+5,2,82,75,3,2,female,asian,1
+1,0,48,52,1,0,male,hispanic,0
+8,3,91,88,4,3,female,white,1
+2,1,60,58,2,1,male,black,0
+6,2,77,81,3,2,female,asian,1
+3,1,69,64,2,1,male,white,0
+10,3,95,90,5,4,female,hispanic,1
+4,2,72,70,2,1,male,black,1

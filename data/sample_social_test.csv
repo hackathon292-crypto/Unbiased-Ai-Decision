@@ -1,0 +1,9 @@
+avg_session_minutes,posts_per_day,topics_interacted,like_rate,share_rate,comment_rate,account_age_days,gender,age_group,location,language,ground_truth
+45,3,12,0.65,0.20,0.10,365,female,25-34,India,en,5
+18,1,5,0.22,0.05,0.03,120,male,18-24,USA,en,1
+62,4,18,0.71,0.34,0.16,540,female,35-44,UK,en,0
+25,2,9,0.38,0.12,0.08,220,male,25-34,Canada,en,7
+54,3,15,0.68,0.28,0.14,410,female,25-34,India,hi,5
+30,1,8,0.41,0.09,0.05,180,male,18-24,USA,en,2
+70,5,20,0.79,0.42,0.20,800,female,35-44,Germany,de,6
+36,2,11,0.52,0.15,0.09,300,male,25-34,Australia,en,4

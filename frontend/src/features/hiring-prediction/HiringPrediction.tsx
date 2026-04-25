@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Briefcase, AlertTriangle, CheckCircle, XCircle, Loader2, Eye } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../../lib/api';
 import type { HiringResponse } from '../../lib/api';
+import { useScanContext } from '../../components/ScanProvider';
 
 interface HiringFormData {
   years_experience: number;
@@ -36,12 +37,27 @@ const EDUCATION_LEVELS = [
 ];
 
 export function HiringPrediction() {
+  const { profiles, lastUpdated } = useScanContext();
   const [formData, setFormData] = useState<HiringFormData>(INITIAL_FORM);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<HiringResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shapData, setShapData] = useState<Record<string, number> | null>(null);
   const [shapLoading, setShapLoading] = useState(false);
+
+  useEffect(() => {
+    setFormData({
+      years_experience: profiles.hiring.years_experience,
+      education_level: profiles.hiring.education_level,
+      technical_score: profiles.hiring.technical_score,
+      communication_score: profiles.hiring.communication_score,
+      num_past_jobs: profiles.hiring.num_past_jobs,
+      certifications: profiles.hiring.certifications,
+      gender: profiles.hiring.gender,
+      religion: profiles.hiring.religion,
+      ethnicity: profiles.hiring.ethnicity,
+    });
+  }, [profiles.hiring, lastUpdated]);
 
   const handleInputChange = (field: keyof HiringFormData, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));

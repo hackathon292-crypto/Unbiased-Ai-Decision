@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 import { api } from '../../lib/api';
 import type { HiringResponse, LoanResponse, SocialResponse } from '../../lib/api';
 import { FeedbackForm } from '../../components/FeedbackForm';
+import { useScanContext } from '../../components/ScanProvider';
 
 type Domain = 'loan' | 'hiring' | 'social';
 
@@ -111,6 +112,7 @@ const EDUCATION_LEVELS = [
 const LOAN_TERMS = [6, 12, 18, 24, 30, 36, 48, 60, 84, 120, 180, 240, 360];
 
 export function FairnessExplorer() {
+  const { profiles, inferredDomains, lastUpdated } = useScanContext();
   const [activeDomain, setActiveDomain] = useState<Domain>('loan');
   
   // Form states
@@ -123,6 +125,15 @@ export function FairnessExplorer() {
   const [error, setError] = useState<string | null>(null);
   const [shapData, setShapData] = useState<Record<string, number> | null>(null);
   const [shapLoading, setShapLoading] = useState(false);
+
+  useEffect(() => {
+    setLoanForm(profiles.loan);
+    setHiringForm(profiles.hiring);
+    setSocialForm(profiles.social);
+    if (inferredDomains.length === 1) {
+      setActiveDomain(inferredDomains[0]);
+    }
+  }, [profiles, inferredDomains, lastUpdated]);
 
   // Fetch SHAP when result changes
   useEffect(() => {
