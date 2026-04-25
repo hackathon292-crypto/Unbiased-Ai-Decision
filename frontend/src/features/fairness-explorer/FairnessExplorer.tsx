@@ -156,7 +156,7 @@ export function FairnessExplorer({ autoRunToken = 0 }: FairnessExplorerProps) {
   const [error, setError] = useState<string | null>(null);
   const [shapData, setShapData] = useState<Record<string, number> | null>(null);
   const [shapLoading, setShapLoading] = useState(false);
-  const socialManualMode = activeDomain === 'social';
+  const manualMode = activeDomain === 'loan' || activeDomain === 'social';
 
   useEffect(() => {
     setLoanForm(profiles.loan);
@@ -269,15 +269,15 @@ export function FairnessExplorer({ autoRunToken = 0 }: FairnessExplorerProps) {
     if (!formsSyncedWithProfiles || isLoading) return;
 
     // Loan/Hiring should always auto-process from scanned profile state.
-    // Social remains manual unless explicitly triggered by a New Scan flow.
+    // Loan/Social remain manual unless explicitly triggered by a New Scan flow.
     const shouldAutoRun =
-      activeDomain === 'social'
+      manualMode
         ? Boolean(autoRunToken && lastUpdated && activeDomain === preferredAutoDomain)
         : Boolean(lastUpdated);
     if (!shouldAutoRun) return;
 
     const triggerSeed =
-      activeDomain === 'social'
+      manualMode
         ? `${autoRunToken}:${lastUpdated}`
         : `${lastUpdated}`;
     const activeProfileSignature = JSON.stringify(
@@ -298,6 +298,7 @@ export function FairnessExplorer({ autoRunToken = 0 }: FairnessExplorerProps) {
     isLoading,
     activeDomain,
     preferredAutoDomain,
+    manualMode,
     profiles.loan,
     profiles.hiring,
     profiles.social,
@@ -324,7 +325,7 @@ export function FairnessExplorer({ autoRunToken = 0 }: FairnessExplorerProps) {
     : [];
 
   const renderLoanForm = () => (
-    <fieldset disabled className="space-y-5 opacity-80 pointer-events-none">
+    <fieldset disabled={!manualMode} className={`space-y-5 ${manualMode ? '' : 'opacity-80 pointer-events-none'}`}>
       <div>
         <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Credit Score</label>
         <div className="flex items-center gap-4">
@@ -439,7 +440,7 @@ export function FairnessExplorer({ autoRunToken = 0 }: FairnessExplorerProps) {
   );
 
   const renderSocialForm = () => (
-    <fieldset disabled={!socialManualMode} className={`space-y-5 ${socialManualMode ? '' : 'opacity-80 pointer-events-none'}`}>
+    <fieldset disabled={!manualMode} className={`space-y-5 ${manualMode ? '' : 'opacity-80 pointer-events-none'}`}>
       <div>
         <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Avg Session Minutes</label>
         <div className="flex items-center gap-4">
@@ -498,7 +499,7 @@ export function FairnessExplorer({ autoRunToken = 0 }: FairnessExplorerProps) {
           </p>
         </div>
         <div className="px-4 py-2 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-sm text-zinc-600 dark:text-zinc-300">
-          {socialManualMode ? 'Manual mode (Social only)' : 'Auto profile mode'}
+          {manualMode ? 'Manual mode' : 'Auto profile mode'}
         </div>
       </div>
 
@@ -537,8 +538,8 @@ export function FairnessExplorer({ autoRunToken = 0 }: FairnessExplorerProps) {
               {DOMAINS.find(d => d.id === activeDomain)?.label} Parameters
             </h2>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-              {socialManualMode
-                ? 'You can manually edit Social Recommendation parameters and run prediction.'
+              {manualMode
+                ? `You can manually edit ${activeDomain === 'loan' ? 'Loan Approval' : 'Social Recommendation'} parameters and run prediction.`
                 : 'Parameters are auto-filled from scanned files and locked to keep analysis consistent.'}
             </p>
             
@@ -547,11 +548,11 @@ export function FairnessExplorer({ autoRunToken = 0 }: FairnessExplorerProps) {
             {activeDomain === 'social' && renderSocialForm()}
 
             <div className="mt-8">
-              {socialManualMode ? (
+              {manualMode ? (
                 <button
                   onClick={handlePredict}
                   disabled={isLoading}
-                  className="w-full py-4 bg-violet-600 hover:bg-violet-700 disabled:bg-zinc-400 text-white font-medium rounded-2xl flex items-center justify-center gap-3 transition-all shadow-sm"
+                  className={`w-full py-4 ${activeDomain === 'loan' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-violet-600 hover:bg-violet-700'} disabled:bg-zinc-400 text-white font-medium rounded-2xl flex items-center justify-center gap-3 transition-all shadow-sm`}
                 >
                   {isLoading ? (
                     <>
@@ -681,8 +682,8 @@ export function FairnessExplorer({ autoRunToken = 0 }: FairnessExplorerProps) {
               <Zap className="mx-auto text-zinc-300 dark:text-zinc-700 mb-4" size={64} />
               <h3 className="text-xl font-semibold dark:text-white mb-2">No Prediction Yet</h3>
               <p className="text-zinc-500 dark:text-zinc-400">
-                {socialManualMode
-                  ? 'Adjust the Social Recommendation parameters and click "Get Prediction".'
+                {manualMode
+                  ? `Adjust the ${activeDomain === 'loan' ? 'Loan Approval' : 'Social Recommendation'} parameters and click "Get Prediction".`
                   : 'Scan data to auto-generate predictions for this domain.'}
               </p>
             </div>
