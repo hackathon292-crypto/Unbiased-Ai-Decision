@@ -111,6 +111,15 @@ const EDUCATION_LEVELS = [
 
 const LOAN_TERMS = [6, 12, 18, 24, 30, 36, 48, 60, 84, 120, 180, 240, 360];
 
+function normalizeLoanTermMonths(value: number): number {
+  const rounded = Math.round(value);
+  return LOAN_TERMS.reduce((best, term) => {
+    const bestDiff = Math.abs(best - rounded);
+    const nextDiff = Math.abs(term - rounded);
+    return nextDiff < bestDiff ? term : best;
+  }, LOAN_TERMS[0]);
+}
+
 interface FairnessExplorerProps {
   autoRunToken?: number;
 }
@@ -182,13 +191,13 @@ export function FairnessExplorer({ autoRunToken = 0 }: FairnessExplorerProps) {
       switch (activeDomain) {
         case 'loan': {
           const payload = {
-            credit_score: loanForm.credit_score,
+            credit_score: Math.round(loanForm.credit_score),
             annual_income: loanForm.annual_income,
             loan_amount: loanForm.loan_amount,
-            loan_term_months: loanForm.loan_term_months,
+            loan_term_months: normalizeLoanTermMonths(loanForm.loan_term_months),
             employment_years: loanForm.employment_years,
             existing_debt: loanForm.existing_debt,
-            num_credit_lines: loanForm.num_credit_lines,
+            num_credit_lines: Math.round(loanForm.num_credit_lines),
             ...(loanForm.gender && { gender: loanForm.gender }),
             ...(loanForm.age_group && { age_group: loanForm.age_group }),
             ...(loanForm.ethnicity && { ethnicity: loanForm.ethnicity }),

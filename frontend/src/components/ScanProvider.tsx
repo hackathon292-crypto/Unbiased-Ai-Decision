@@ -135,6 +135,10 @@ function mergeRecord<T extends Record<string, unknown>>(base: T, patch: Record<s
   for (const key of Object.keys(base)) {
     const value = patch[key];
     if (value !== undefined && value !== null && value !== '') {
+      // Preserve numeric profile fields when incoming suggestion is non-numeric text.
+      if (typeof base[key] === 'number') {
+        if (typeof value !== 'number' || !Number.isFinite(value)) continue;
+      }
       (next as Record<string, unknown>)[key] = value;
     }
   }
@@ -159,7 +163,8 @@ function normalizeSuggestedValue(key: string, value: string | number): string | 
 
   if (typeof normalized === 'string') {
     const trimmed = normalized.trim();
-    const numeric = Number(trimmed);
+    const extracted = trimmed.match(/-?\d+(?:\.\d+)?/);
+    const numeric = Number(extracted ? extracted[0] : trimmed);
     if (trimmed !== '' && Number.isFinite(numeric)) {
       normalized = numeric;
     } else {

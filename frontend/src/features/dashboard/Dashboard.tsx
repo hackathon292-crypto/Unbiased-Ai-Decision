@@ -43,10 +43,14 @@ export function Dashboard({ refreshKey = 0 }: { refreshKey?: number }) {
   const [activeDomain, setActiveDomain] = useState<Domain>('loan');
   const { data, loading, error } = useDomainSummary(activeDomain, refreshKey);
 
+  const safeRecordCount = Number.isFinite(data?.n_records) ? Number(data?.n_records ?? 0) : 0;
+  const safeGroups = Array.isArray(data?.per_group)
+    ? data.per_group.filter((g) => g && typeof g.group === 'string')
+    : [];
   const dpd   = data?.demographic_parity_difference ?? null;
   const eod   = data?.equal_opportunity_difference  ?? null;
 
-  const hasRecords = (data?.n_records ?? 0) > 0;
+  const hasRecords = safeRecordCount > 0;
   const fairnessScore = dpd != null ? Math.max(0, Math.round((1 - Math.abs(dpd)) * 100)) : null;
   const biasedPct     = fairnessScore != null ? 100 - fairnessScore : null;
 
@@ -71,16 +75,16 @@ export function Dashboard({ refreshKey = 0 }: { refreshKey?: number }) {
     },
     {
       label:  "Records Analysed",
-      value:  loading ? "…" : (data ? String(data.n_records) : (error ? "—" : "N/A")),
+      value:  loading ? "…" : (data ? String(safeRecordCount) : (error ? "—" : "N/A")),
       unit:   "",
       status: "fair" as "warning" | "fair",
     },
   ];
 
-  const groupData = data && data.per_group.length > 0
-    ? data.per_group.map(g => ({
+  const groupData = safeGroups.length > 0
+    ? safeGroups.map(g => ({
         group:    g.group,
-        approval: Math.round(g.positive_rate * 100),
+        approval: Number.isFinite(g.positive_rate) ? Math.round(g.positive_rate * 100) : 0,
       }))
     : [];
 
@@ -195,7 +199,7 @@ export function Dashboard({ refreshKey = 0 }: { refreshKey?: number }) {
             {activeDomain === 'loan' ? 'Approval' : activeDomain === 'hiring' ? 'Hiring' : 'Engagement'} Rate by Protected Group
           </h2>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            {loading ? 'Loading data...' : error ? 'Failed to load data' : `Showing ${data?.n_records || 0} records`}
+            {loading ? 'Loading data...' : error ? 'Failed to load data' : `Showing ${safeRecordCount} records`}
           </p>
         </div>
 
