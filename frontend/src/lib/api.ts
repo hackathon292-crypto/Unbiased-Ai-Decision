@@ -24,8 +24,28 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     body:    JSON.stringify(body),
   });
   if (!res.ok) {
-    const detail = await res.json().catch(() => ({}));
-    throw new Error((detail as { detail?: string }).detail ?? `POST ${path} → ${res.status}`);
+    const payload = await res.json().catch(() => ({} as Record<string, unknown>));
+    const typed = payload as {
+      detail?: string;
+      error?: string;
+      reason?: string;
+      code?: string;
+      details?: Array<{ field?: string; message?: string }>;
+    };
+
+    const firstValidationError = typed.details?.find((d) => d?.message);
+    const validationMessage = firstValidationError
+      ? `${firstValidationError.field ? `${firstValidationError.field}: ` : ""}${firstValidationError.message}`
+      : undefined;
+
+    const message =
+      typed.detail ||
+      validationMessage ||
+      typed.error ||
+      typed.reason ||
+      `POST ${path} → ${res.status}`;
+
+    throw new Error(typed.code ? `${message} (${typed.code})` : message);
   }
   return res.json() as Promise<T>;
 }
