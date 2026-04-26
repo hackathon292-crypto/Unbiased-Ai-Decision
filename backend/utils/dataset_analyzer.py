@@ -127,6 +127,11 @@ def normalize_column_name(name: str) -> str:
     return str(name).strip().lower().replace("_", "").replace(" ", "").replace("-", "")
 
 
+def normalize_group_value(value: Any) -> str:
+    cleaned = str(value).strip().lower()
+    return cleaned if cleaned else "unknown"
+
+
 def read_tabular_file(file_path: Path, extension: str) -> pd.DataFrame:
     extension = extension.lower()
 
@@ -172,23 +177,37 @@ def detect_domain(df: pd.DataFrame) -> Tuple[Optional[str], float, Dict[str, str
     for domain, schema in DOMAIN_SIGNATURES.items():
         required = list(schema["required"])
         optional = list(schema["optional"])
-        all_fields = required + optional
-        matches = 0
+        required_matches = 0
+        optional_matches = 0
         mapping: Dict[str, str] = {}
 
-        for canonical in all_fields:
+        for canonical in required:
             norm = normalize_column_name(canonical)
             if norm in normalized_set:
                 mapping[canonical] = normalized_cols[norm]
-                matches += 1
+                required_matches += 1
                 continue
 
             close = get_close_matches(norm, list(normalized_set), n=1, cutoff=0.72)
             if close:
                 mapping[canonical] = normalized_cols[close[0]]
-                matches += 1
+                required_matches += 1
 
-        score = matches / max(1, len(required))
+        for canonical in optional:
+            norm = normalize_column_name(canonical)
+            if norm in normalized_set:
+                mapping[canonical] = normalized_cols[norm]
+                optional_matches += 1
+                continue
+
+            close = get_close_matches(norm, list(normalized_set), n=1, cutoff=0.72)
+            if close:
+                mapping[canonical] = normalized_cols[close[0]]
+                optional_matches += 1
+
+        required_ratio = required_matches / max(1, len(required))
+        optional_ratio = optional_matches / max(1, len(optional))
+        score = round(min(1.0, required_ratio * 0.8 + optional_ratio * 0.2), 4)
         if score > best_score:
             best_score = score
             best_domain = domain
@@ -583,6 +602,7 @@ def _fairness_report(
     for attr_name, column_name in sensitive_columns.items():
         groups: Dict[str, Dict[str, Any]] = {}
         for pos, group_value in enumerate(df[column_name].fillna("unknown").astype(str).tolist()):
+            group_value = normalize_group_value(group_value)
             groups.setdefault(group_value, {"n": 0, "positive": 0, "label_pairs": []})
             groups[group_value]["n"] += 1
             pred_value = int(predictions[pos]) if pos < len(predictions) else 0
@@ -773,7 +793,7 @@ async def batch_predict(
             if sensitive_attr:
                 source_col = sensitive_columns[sensitive_attr]
                 raw_sensitive = row.get(source_col)
-                sensitive_value = "unknown" if pd.isna(raw_sensitive) else str(raw_sensitive)
+                sensitive_value = "unknown" if pd.isna(raw_sensitive) else normalize_group_value(raw_sensitive)
 
             result = predictor(selection.model, features, sensitive_attr=sensitive_attr, domain=domain)
             prediction = int(result["prediction"])

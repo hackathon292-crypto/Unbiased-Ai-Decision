@@ -363,7 +363,10 @@ async def save_prediction(record: dict) -> None:
 
     if db is not None:
         try:
-            await db["predictions"].insert_one(record)
+            # Mongo drivers may mutate the inserted payload by adding `_id`.
+            # Keep fallback JSON writes isolated from that mutation.
+            mongo_record = dict(record)
+            await db["predictions"].insert_one(mongo_record)
             logger.debug(f"Saved to MongoDB [{record.get('domain')}]")
         except Exception as exc:
             logger.error(f"MongoDB write failed: {exc}. Falling back to JSON.")
@@ -713,7 +716,7 @@ def _append_to_json(record: dict) -> None:
         except json.JSONDecodeError:
             records = []
 
-    records.append(record)
+    records.append(_make_json_safe(record))
 
     with open(JSON_LOG_PATH, "w") as fh:
         json.dump(records, fh, indent=2)
@@ -723,3 +726,18 @@ def _append_to_json(record: dict) -> None:
 
 # Alias for compatibility with mitigation_router
 get_prediction_history = get_recent_predictions
+
+
+def _make_json_safe(value: Any) -> Any:
+    """Recursively convert non-JSON-native values (e.g. ObjectId) to strings."""
+    if isinstance(value, dict):
+        return {str(k): _make_json_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_make_json_safe(v) for v in value]
+    if isinstance(value, tuple):
+        return [_make_json_safe(v) for v in value]
+    try:
+        json.dumps(value)
+        return value
+    except (TypeError, ValueError):
+        return str(value)

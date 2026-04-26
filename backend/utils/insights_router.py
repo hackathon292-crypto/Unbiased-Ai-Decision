@@ -39,6 +39,11 @@ _VALID_DOMAINS = frozenset({"hiring", "loan", "social"})
 _MIN_METRICS_RECORDS = 10
 
 
+def _normalize_group(value: Any) -> str:
+    cleaned = str(value).strip().lower()
+    return cleaned if cleaned else "unknown"
+
+
 # ─── Response models ─────────────────────────────────────────────────────────
 
 class RecentPrediction(BaseModel):
@@ -135,11 +140,29 @@ async def summary(
             f"Only {len(records)} record(s) available (minimum {_MIN_METRICS_RECORDS} for stable metrics)."
         )
 
+    social_reference_class: Optional[int] = None
+    if domain == "social" and records:
+        counts: Dict[int, int] = defaultdict(int)
+        for r in records:
+            counts[int(r.get("prediction", 0))] += 1
+        social_reference_class = max(counts.items(), key=lambda kv: kv[1])[0]
+        notes.append(
+            f"Social metrics use one-vs-rest parity with reference class {social_reference_class}."
+        )
+
+    def to_binary_prediction(value: Any) -> int:
+        pred = int(value)
+        if domain in {"loan", "hiring"}:
+            return int(pred == 1)
+        if social_reference_class is None:
+            return 0
+        return int(pred == social_reference_class)
+
     # Group by sensitive_value_group
     buckets: Dict[str, List[dict]] = defaultdict(list)
     sensitive_attrs = set()
     for r in records:
-        grp = r.get("sensitive_value_group") or "unknown"
+        grp = _normalize_group(r.get("sensitive_value_group") or "unknown")
         buckets[grp].append(r)
         fa = (r.get("fairness") or {}).get("sensitive_attribute")
         if fa:
@@ -151,7 +174,7 @@ async def summary(
     sens_all:     List[str] = []
 
     for grp, items in buckets.items():
-        preds       = [int(x.get("prediction", 0)) for x in items]
+        preds       = [to_binary_prediction(x.get("prediction", 0)) for x in items]
         confs       = [float(x.get("confidence", 0.0)) for x in items]
         labelled    = [x for x in items if x.get("ground_truth") is not None]
         accuracy    = None
@@ -171,7 +194,7 @@ async def summary(
         ))
         # Accumulate arrays for DPD / EOD (only labelled records for EOD)
         for x in items:
-            y_pred_all.append(int(x.get("prediction", 0)))
+            y_pred_all.append(to_binary_prediction(x.get("prediction", 0)))
             sens_all.append(grp)
             gt = x.get("ground_truth")
             y_true_all.append(int(gt) if gt is not None else -1)
@@ -207,10 +230,10 @@ async def summary(
             gt = x.get("ground_truth")
             if gt is None:
                 continue
-            y_pred_lab.append(int(x.get("prediction", 0)))
+            y_pred_lab.append(to_binary_prediction(x.get("prediction", 0)))
             y_prob_lab.append(float(x.get("confidence", 0.5)))
             y_true_lab.append(int(gt))
-            sens_lab.append(str(x.get("sensitive_value_group", "unknown")))
+            sens_lab.append(_normalize_group(x.get("sensitive_value_group", "unknown")))
         post_proc = run_post_processing_checks(
             y_pred=y_pred_lab,
             y_prob=y_prob_lab,
@@ -261,7 +284,7 @@ async def fairness_batch(body: BatchFairnessRequest) -> Dict[str, Any]:
 
     y_pred = [int(r.get("prediction", 0)) for r in labelled]
     y_true = [int(r.get("ground_truth")) for r in labelled]
-    sens   = [str(r.get("sensitive_value_group", "unknown")) for r in labelled]
+    sens   = [_normalize_group(r.get("sensitive_value_group", "unknown")) for r in labelled]
 
     return run_batch_fairness_check(
         y_pred              = y_pred,

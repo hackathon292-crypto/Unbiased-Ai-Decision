@@ -790,7 +790,7 @@ export function Datasets({ scanTrigger = 0, onScanComplete }: DatasetsProps) {
                       <div className="text-right">
                         <p className="text-sm text-emerald-700 dark:text-emerald-300 mb-1">Confidence</p>
                         <p className="text-2xl font-bold text-emerald-800 dark:text-emerald-200">
-                          {(analysisResult.confidence * 100).toFixed(0)}%
+                          {(Math.min(1, Math.max(0, analysisResult.confidence)) * 100).toFixed(0)}%
                         </p>
                       </div>
                     </div>
@@ -1506,7 +1506,9 @@ function ScanReportPanel({ report, onClose }: ScanReportPanelProps) {
                         )}
                       </td>
                       <td className="py-2 px-3 dark:text-white">
-                        {result.confidence ? `${Math.round(result.confidence * 100)}%` : '-'}
+                        {result.confidence != null
+                          ? `${Math.round(Math.min(1, Math.max(0, result.confidence)) * 100)}%`
+                          : '-'}
                       </td>
                       <td className="py-2 px-3 dark:text-white">
                         {result.rows_predicted.toLocaleString()} / {result.rows_total.toLocaleString()}
