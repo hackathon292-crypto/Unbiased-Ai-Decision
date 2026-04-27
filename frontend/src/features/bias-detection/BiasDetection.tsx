@@ -3,6 +3,7 @@ import { Target, Play, AlertTriangle, Briefcase, DollarSign, Share2, Loader2 } f
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { api } from '../../lib/api';
 import type { FullScanResponse, SummaryResponse } from '../../lib/api';
+import { useScanContext } from '../../components/ScanProvider';
 
 type Domain = 'loan' | 'hiring' | 'social';
 
@@ -34,6 +35,7 @@ interface BiasDetectionProps {
 }
 
 export function BiasDetection({ refreshKey = 0, onScanComplete }: BiasDetectionProps) {
+  const { ingestScanArtifacts } = useScanContext();
   const [activeDomain, setActiveDomain] = useState<Domain>('loan');
   const [selectedGroups, setSelectedGroups] = useState<string[]>(['Gender', 'Age Group']);
   const [isScanning, setIsScanning] = useState(false);
@@ -49,6 +51,10 @@ export function BiasDetection({ refreshKey = 0, onScanComplete }: BiasDetectionP
     try {
       const result = await api.scanFiles({ domain: activeDomain });
       setScanResult(result);
+      await ingestScanArtifacts({
+        inspections: [],
+        analyses: [{ result: result.analysis }],
+      });
       const summary = await api.getSummary(activeDomain);
       setLiveData(summary);
       onScanComplete?.();

@@ -129,6 +129,12 @@ const DEFAULT_STATE: ScanState = {
 
 const ScanContext = createContext<ScanContextValue | null>(null);
 
+function defaultProfileForDomain(domain: Domain): LoanProfile | HiringProfile | SocialProfile {
+  if (domain === 'loan') return { ...DEFAULT_LOAN };
+  if (domain === 'hiring') return { ...DEFAULT_HIRING };
+  return { ...DEFAULT_SOCIAL };
+}
+
 function mergeRecord<T extends Record<string, unknown>>(base: T, patch: Record<string, unknown> | undefined): T {
   if (!patch) return base;
   const next = { ...base };
@@ -159,6 +165,21 @@ const INTEGER_FIELDS = new Set([
   'account_age_days',
 ]);
 
+const EDUCATION_TEXT_MAP: Record<string, number> = {
+  'high school': 0,
+  highschool: 0,
+  secondary: 0,
+  bachelor: 1,
+  bachelors: 1,
+  undergraduate: 1,
+  master: 2,
+  masters: 2,
+  postgraduate: 2,
+  phd: 3,
+  doctorate: 3,
+  doctoral: 3,
+};
+
 function toAgeGroupBucket(value: string | number): string {
   if (typeof value === 'number' && Number.isFinite(value)) {
     if (value < 18) return '0-17';
@@ -186,6 +207,13 @@ function toAgeGroupBucket(value: string | number): string {
 function normalizeSuggestedValue(key: string, value: string | number): string | number {
   if (key === 'age_group') {
     return toAgeGroupBucket(value);
+  }
+
+  if (key === 'education_level' && typeof value === 'string') {
+    const lowered = value.trim().toLowerCase();
+    for (const [label, mapped] of Object.entries(EDUCATION_TEXT_MAP)) {
+      if (lowered.includes(label)) return mapped;
+    }
   }
 
   if (typeof value === 'string') {
@@ -373,6 +401,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
 
   const ingestScanArtifacts = useCallback(async ({ inspections, analyses, insights = [] }: IngestPayload) => {
     const inferredDomains = new Set<Domain>();
+    const resetDomains = new Set<Domain>();
     let nextProfiles = {
       ...state.profiles,
       loan: { ...state.profiles.loan },
@@ -384,6 +413,13 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       const domain = inspection.inferred_domain;
       if (!domain) continue;
       inferredDomains.add(domain);
+      if (!resetDomains.has(domain)) {
+        nextProfiles = {
+          ...nextProfiles,
+          [domain]: defaultProfileForDomain(domain),
+        };
+        resetDomains.add(domain);
+      }
       const normalizedPatch = Object.fromEntries(
         Object.entries(inspection.suggested_parameters ?? {}).map(([key, value]) => [key, normalizeSuggestedValue(key, value)])
       );
@@ -397,8 +433,16 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       const domain = result.detected_domain as Domain | null;
       if (!domain) continue;
       inferredDomains.add(domain);
+      if (!resetDomains.has(domain)) {
+        nextProfiles = {
+          ...nextProfiles,
+          [domain]: defaultProfileForDomain(domain),
+        };
+        resetDomains.add(domain);
+      }
+      const profilePatch = result.scan_result?.profile ?? result.suggested_profile ?? {};
       const normalizedPatch = Object.fromEntries(
-        Object.entries(result.suggested_profile ?? {}).map(([key, value]) => [key, normalizeSuggestedValue(key, value)])
+        Object.entries(profilePatch).map(([key, value]) => [key, normalizeSuggestedValue(key, value)])
       );
       nextProfiles = {
         ...nextProfiles,

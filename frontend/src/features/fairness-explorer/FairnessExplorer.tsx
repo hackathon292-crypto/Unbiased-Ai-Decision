@@ -428,6 +428,26 @@ export function FairnessExplorer({ autoRunToken = 0 }: FairnessExplorerProps) {
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
+          <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Past Jobs</label>
+          <div className="flex items-center gap-4">
+            <input type="range" min="0" max="30" value={hiringForm.num_past_jobs}
+              onChange={(e) => setHiringForm({ ...hiringForm, num_past_jobs: parseInt(e.target.value) })}
+              className="flex-1 accent-blue-600" />
+            <span className="w-12 text-right font-medium dark:text-white">{hiringForm.num_past_jobs}</span>
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Certifications</label>
+          <div className="flex items-center gap-4">
+            <input type="range" min="0" max="20" value={hiringForm.certifications}
+              onChange={(e) => setHiringForm({ ...hiringForm, certifications: parseInt(e.target.value) })}
+              className="flex-1 accent-blue-600" />
+            <span className="w-12 text-right font-medium dark:text-white">{hiringForm.certifications}</span>
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
           <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Gender</label>
           <input type="text" value={hiringForm.gender} placeholder="e.g., male, female"
             onChange={(e) => setHiringForm({ ...hiringForm, gender: e.target.value })}

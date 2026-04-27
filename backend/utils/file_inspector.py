@@ -75,6 +75,16 @@ def _coerce_numeric(value: Any) -> Any:
     return value
 
 
+def _canonical_column_map(columns: List[str], domain: str) -> Dict[str, str]:
+    normalized = {_normalize(col): col for col in columns}
+    mapping: Dict[str, str] = {}
+    for field in DOMAIN_FIELDS[domain]:
+        source = normalized.get(_normalize(field))
+        if source:
+            mapping[field] = source
+    return mapping
+
+
 def _detect_domain_from_keys(keys: List[str]) -> Optional[str]:
     normalized_keys = {_normalize(key) for key in keys}
     best_domain = None
@@ -122,9 +132,10 @@ def _attach_inference(payload: Dict[str, Any]) -> Dict[str, Any]:
         preview_rows = payload.get("preview_rows") or []
         if inferred_domain and preview_rows:
             first_row = preview_rows[0]
-            for field in DOMAIN_FIELDS[inferred_domain]:
-                if field in first_row and first_row[field] not in (None, ""):
-                    suggested_parameters[field] = _coerce_numeric(first_row[field])
+            column_mapping = _canonical_column_map(columns, inferred_domain)
+            for field, source_col in column_mapping.items():
+                if source_col in first_row and first_row[source_col] not in (None, ""):
+                    suggested_parameters[field] = _coerce_numeric(first_row[source_col])
     elif payload.get("kind") in {"json", "yaml", "xml"}:
         keys = (payload.get("keys") or payload.get("item_keys") or [])
         inferred_domain = _detect_domain_from_keys([str(key) for key in keys])

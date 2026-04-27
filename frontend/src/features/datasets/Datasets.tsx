@@ -202,7 +202,7 @@ export function Datasets({ scanTrigger = 0, onScanComplete }: DatasetsProps) {
       if (uploadedFiles.length > 0) {
         const analysisResults: DatasetAnalysisResult[] = [];
         for (const uploadedFile of uploadedFiles) {
-          const analysis = await handleAnalyze(uploadedFile.id);
+          const analysis = await handleAnalyze(uploadedFile.id, false);
           if (analysis) analysisResults.push(analysis);
         }
         const primaryAnalysis = analysisResults.find((item) => item.success) ?? analysisResults[0] ?? null;
@@ -227,7 +227,7 @@ export function Datasets({ scanTrigger = 0, onScanComplete }: DatasetsProps) {
         });
       }
       onScanComplete?.();
-    } catch (err) {
+    } catch {
       alert('Some files failed to upload. Please try again.');
     }
   };
@@ -239,7 +239,7 @@ export function Datasets({ scanTrigger = 0, onScanComplete }: DatasetsProps) {
       await api.deleteFile(fileId);
       setFiles(prev => prev.filter(f => f.id !== fileId));
       if (selectedFile?.id === fileId) setSelectedFile(null);
-    } catch (err) {
+    } catch {
       alert('Failed to delete file');
     }
   };
@@ -252,12 +252,23 @@ export function Datasets({ scanTrigger = 0, onScanComplete }: DatasetsProps) {
     a.click();
   };
 
-  const handleAnalyze = async (fileId: string): Promise<DatasetAnalysisResult | null> => {
+  const handleAnalyze = async (fileId: string, publishScan = true): Promise<DatasetAnalysisResult | null> => {
     setAnalyzing(true);
     try {
       const result = await api.analyzeDataset(fileId);
       setAnalysisResult(result);
-      if (result.success) onScanComplete?.();
+      if (result.success && publishScan) {
+        const ins = await api.inspectFile(fileId).catch(() => null);
+        if (ins) {
+          setInspections([ins]);
+          setSelectedInspection(ins);
+        }
+        await ingestScanArtifacts({
+          inspections: ins ? [ins] : [],
+          analyses: [{ result }],
+        });
+        onScanComplete?.();
+      }
       return result;
     } catch (err) {
       alert('Analysis failed: ' + (err as Error).message);
@@ -356,13 +367,13 @@ export function Datasets({ scanTrigger = 0, onScanComplete }: DatasetsProps) {
     } finally {
       setScanRunning(false);
     }
-  }, []);
+  }, [ingestScanArtifacts, onScanComplete]);
 
   useEffect(() => {
     if (scanTrigger > 0) {
       scanAllFiles();
     }
-  }, [scanTrigger]);
+  }, [scanAllFiles, scanTrigger]);
 
   const filteredFiles = files.filter(file => 
     file.filename.toLowerCase().includes(searchQuery.toLowerCase()) ||

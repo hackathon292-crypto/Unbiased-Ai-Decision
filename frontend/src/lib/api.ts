@@ -380,6 +380,13 @@ export interface DatasetAnalysisResult {
   detected_domain: string | null;
   confidence: number;
   column_mapping?: Record<string, string>;
+  scan_result?: {
+    file_id: string;
+    domain: 'hiring' | 'loan' | 'social';
+    row_index: number;
+    profile: Record<string, string | number>;
+    column_mapping: Record<string, string>;
+  };
   rows_total: number;
   rows_predicted: number;
   rows_failed: number;

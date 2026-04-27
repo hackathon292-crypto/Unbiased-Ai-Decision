@@ -41,11 +41,17 @@ def preload(path: Path = MODEL_PATH) -> None:
     registry.load(MODEL_NAME, path)
 
 
+def _ensure_loaded() -> None:
+    if registry.get_metadata(MODEL_NAME).get("status") == "not_loaded":
+        preload()
+
+
 def get_model(variant: str = "primary") -> Any:
     """
     Return the cached hiring model for *variant* (default: "primary").
     Raises KeyError if preload() has not been called yet.
     """
+    _ensure_loaded()
     return registry.get(MODEL_NAME, variant)
 
 
@@ -54,6 +60,7 @@ def get_model_ab() -> Tuple[Any, str]:
     Return *(model, variant_name)* respecting any active A/B traffic split.
     Falls back to ("primary model", "primary") when no split is configured.
     """
+    _ensure_loaded()
     return registry.get_ab(MODEL_NAME)
 
 

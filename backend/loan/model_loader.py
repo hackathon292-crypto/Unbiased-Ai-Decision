@@ -20,13 +20,20 @@ def preload(path: Path = MODEL_PATH) -> None:
     registry.load(MODEL_NAME, path)
 
 
+def _ensure_loaded() -> None:
+    if registry.get_metadata(MODEL_NAME).get("status") == "not_loaded":
+        preload()
+
+
 def get_model(variant: str = "primary") -> Any:
     """Return the cached loan model for *variant*."""
+    _ensure_loaded()
     return registry.get(MODEL_NAME, variant)
 
 
 def get_model_ab() -> Tuple[Any, str]:
     """Return *(model, variant_name)* respecting any active A/B split."""
+    _ensure_loaded()
     return registry.get_ab(MODEL_NAME)
 
 

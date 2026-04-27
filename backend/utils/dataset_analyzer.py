@@ -479,7 +479,12 @@ def _prepare_feature_frame(df: pd.DataFrame, mapping: Dict[str, str], domain: st
     for feature, default in DEFAULT_FEATURE_VALUES[domain].items():
         source_col = mapping.get(feature)
         if source_col and source_col in df.columns:
-            prepared[feature] = pd.to_numeric(df[source_col], errors="coerce").fillna(default)
+            if feature == "education_level":
+                prepared[feature] = df[source_col].map(
+                    lambda value: _coerce_feature_value(feature, value, default)
+                )
+            else:
+                prepared[feature] = pd.to_numeric(df[source_col], errors="coerce").fillna(default)
         else:
             prepared[feature] = pd.Series([default] * len(df), index=df.index, dtype="float64")
     return pd.DataFrame(prepared)
@@ -629,20 +634,35 @@ def _build_suggested_profile(
     sensitive_columns: Dict[str, str],
 ) -> Dict[str, Any]:
     suggested: Dict[str, Any] = {}
+    if df.empty:
+        return suggested
+
+    first_valid_row: Optional[pd.Series] = None
+    for _, row in df.iterrows():
+        if any(
+            column_mapping.get(feature) in df.columns
+            and pd.notna(row.get(column_mapping[feature]))
+            and str(row.get(column_mapping[feature])).strip() != ""
+            for feature in DEFAULT_FEATURE_VALUES[domain]
+            if column_mapping.get(feature)
+        ):
+            first_valid_row = row
+            break
+
+    if first_valid_row is None:
+        first_valid_row = df.iloc[0]
+
     for feature, default in DEFAULT_FEATURE_VALUES[domain].items():
         source_col = column_mapping.get(feature)
         if source_col and source_col in df.columns:
-            series = pd.to_numeric(df[source_col], errors="coerce").dropna()
-            if not series.empty:
-                median_value = float(series.median())
-                suggested[feature] = int(median_value) if float(median_value).is_integer() else round(median_value, 4)
-                continue
-        suggested[feature] = default
+            raw_value = first_valid_row.get(source_col)
+            if pd.notna(raw_value) and str(raw_value).strip() != "":
+                suggested[feature] = _coerce_feature_value(feature, raw_value, default)
 
     for sensitive_name, source_col in sensitive_columns.items():
-        series = df[source_col].dropna()
-        if not series.empty:
-            suggested[sensitive_name] = str(series.astype(str).mode().iloc[0])
+        raw_value = first_valid_row.get(source_col)
+        if pd.notna(raw_value) and str(raw_value).strip() != "":
+            suggested[sensitive_name] = str(raw_value).strip()
 
     return suggested
 
@@ -1056,6 +1076,13 @@ async def analyze_uploaded_file(
         "unmapped_columns": summary["unmapped_schema_fields"],
         "results_preview": summary["results_preview"],
         "suggested_profile": summary["suggested_profile"],
+        "scan_result": {
+            "file_id": file_id,
+            "domain": domain,
+            "row_index": 0,
+            "profile": summary["suggested_profile"],
+            "column_mapping": column_mapping,
+        },
     }
 
 
@@ -1147,6 +1174,13 @@ async def _analyze_non_tabular_file(
         "detected_domain": domain,
         "confidence": round(confidence, 4),
         "column_mapping": column_mapping,
+        "scan_result": {
+            "file_id": file_id,
+            "domain": domain,
+            "row_index": 0,
+            "profile": summary["suggested_profile"],
+            "column_mapping": column_mapping,
+        },
         "rows_total": summary["rows_total"],
         "rows_predicted": summary["rows_predicted"],
         "rows_failed": summary["rows_failed"],
