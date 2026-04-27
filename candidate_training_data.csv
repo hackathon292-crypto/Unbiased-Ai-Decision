@@ -1,0 +1,51 @@
+Enrollment_No,Candidate_Name,GPA,AI_Specialization,DBMS_Expertise,Projects_Completed,Core_Project_Theme,Internship_Months,Certifications_Count,Legitimacy_Score_Label
+2400104000,Aarav Sharma,8.61,"Computer Vision, OpenCV, YOLO","MongoDB, NoSQL, Sharding",3,Object Detection for Traffic,10,5,1
+2400104001,Aditi Rao,9.44,"TensorFlow, PyTorch, CNNs","SQL, PostgreSQL, Indexing",2,Recommendation Engine for E-commerce,3,4,1
+2400104002,Akash Gupta,8.49,"Time Series Analysis, LSTMs","MongoDB, NoSQL, Sharding",8,Chatbot using Gemini API,12,0,1
+2400104003,Ananya Singh,9.0,"LLMs, LangChain, RAG","MySQL, Query Optimization",3,Recommendation Engine for E-commerce,12,2,1
+2400104004,Arjun Mehta,6.84,"Scikit-Learn, XGBoost, Regression","MySQL, Query Optimization",6,Chatbot using Gemini API,12,0,0
+2400104005,Bhavya Jain,8.91,"Time Series Analysis, LSTMs","SQL, PostgreSQL, Indexing",9,Chatbot using Gemini API,10,4,1
+2400104006,Chirag Malhotra,9.42,"Scikit-Learn, XGBoost, Regression","SQL, PostgreSQL, Indexing",4,Chatbot using Gemini API,1,1,1
+2400104007,Divya Reddy,9.36,"LLMs, LangChain, RAG","MongoDB, NoSQL, Sharding",6,Algae Harvesting System Design,3,5,1
+2400104008,Eshan Verma,7.38,"NLP, Transformers, BERT","Oracle, PL/SQL",4,Stock Price Predictor,7,3,0
+2400104009,Farhan Khan,7.39,"Computer Vision, OpenCV, YOLO","Cassandra, Wide-column",6,Sentiment Analysis Dashboard,3,0,0
+2400104010,Gauri Iyer,9.16,"Computer Vision, OpenCV, YOLO","Oracle, PL/SQL",6,Recommendation Engine for E-commerce,10,3,1
+2400104011,Hrithik Joshi,7.81,"NLP, Transformers, BERT","MongoDB, NoSQL, Sharding",9,Chatbot using Gemini API,11,4,1
+2400104012,Ishani Kapoor,7.91,"Computer Vision, OpenCV, YOLO","MongoDB, NoSQL, Sharding",9,Handwritten Digit Recognizer,1,0,1
+2400104013,Jatin Saxena,9.34,"Time Series Analysis, LSTMs","Oracle, PL/SQL",2,Solar Power Optimizer,6,4,1
+2400104014,Kavya Nair,9.79,"TensorFlow, PyTorch, CNNs","Cassandra, Wide-column",2,Chatbot using Gemini API,12,5,1
+2400104015,Lakshya Agarwal,7.62,"Data Augmentation, GANs","SQL, PostgreSQL, Indexing",5,Stock Price Predictor,8,0,1
+2400104016,Mehak Chawla,9.37,"Computer Vision, OpenCV, YOLO","MongoDB, NoSQL, Sharding",6,Stock Price Predictor,8,4,1
+2400104017,Nikhil Deshmukh,9.53,"TensorFlow, PyTorch, CNNs","SQL, PostgreSQL, Indexing",6,Chatbot using Gemini API,3,0,1
+2400104018,Ojaswi Patil,7.29,"Scikit-Learn, XGBoost, Regression","SQL, PostgreSQL, Indexing",8,Object Detection for Traffic,12,4,0
+2400104019,Pranav Kulkarni,9.03,"NLP, Transformers, BERT","MySQL, Query Optimization",9,Solar Power Optimizer,3,4,1
+2400104020,Qasim Sheikh,8.99,"Time Series Analysis, LSTMs","Cassandra, Wide-column",6,Handwritten Digit Recognizer,8,3,1
+2400104021,Riya Sharma,6.9,"Scikit-Learn, XGBoost, Regression","MySQL, Query Optimization",1,Recommendation Engine for E-commerce,9,1,0
+2400104022,Siddharth Malhotra,6.52,"TensorFlow, PyTorch, CNNs","MongoDB, NoSQL, Sharding",2,Sentiment Analysis Dashboard,5,0,0
+2400104023,Tanya Bhatia,8.2,"Computer Vision, OpenCV, YOLO","Oracle, PL/SQL",3,Handwritten Digit Recognizer,3,3,1
+2400104024,Utkarsh Mishra,9.16,"Time Series Analysis, LSTMs","MySQL, Query Optimization",7,Solar Power Optimizer,7,5,0
+2400104025,Vanya Goel,6.68,"TensorFlow, PyTorch, CNNs","Redis, Caching, Key-Value",6,Object Detection for Traffic,3,1,0
+2400104026,Waseem Akram,7.13,"NLP, Transformers, BERT","Redis, Caching, Key-Value",3,Chatbot using Gemini API,7,1,0
+2400104027,Xavier Dsouza,9.39,"Scikit-Learn, XGBoost, Regression","SQL, PostgreSQL, Indexing",9,Sentiment Analysis Dashboard,1,1,1
+2400104028,Yashvi Shah,7.05,"Data Augmentation, GANs","MongoDB, NoSQL, Sharding",7,Sentiment Analysis Dashboard,2,3,0
+2400104029,Zaid Ahmed,6.51,"Reinforcement Learning, OpenAI Gym","Redis, Caching, Key-Value",5,Solar Power Optimizer,11,5,0
+2400104030,Amrita Sen,9.78,"Data Augmentation, GANs","MongoDB, NoSQL, Sharding",4,Chatbot using Gemini API,3,0,1
+2400104031,Brijesh Tiwari,8.41,"LLMs, LangChain, RAG","SQL, PostgreSQL, Indexing",1,Handwritten Digit Recognizer,8,4,0
+2400104032,Chetan Bhagat,7.02,"Scikit-Learn, XGBoost, Regression","MongoDB, NoSQL, Sharding",2,Object Detection for Traffic,10,1,0
+2400104033,Deepika Padukone,7.83,"TensorFlow, PyTorch, CNNs","Oracle, PL/SQL",2,Solar Power Optimizer,10,4,1
+2400104034,Esha Deol,8.37,"Computer Vision, OpenCV, YOLO","Cassandra, Wide-column",6,Recommendation Engine for E-commerce,4,3,1
+2400104035,Feroz Khan,6.93,"Data Augmentation, GANs","MySQL, Query Optimization",2,Sentiment Analysis Dashboard,7,4,0
+2400104036,Gautam Gambhir,9.79,"Computer Vision, OpenCV, YOLO","Oracle, PL/SQL",5,Stock Price Predictor,5,0,0
+2400104037,Hema Malini,9.4,"Data Augmentation, GANs","Oracle, PL/SQL",5,Sentiment Analysis Dashboard,10,4,1
+2400104038,Irfan Pathan,7.49,"NLP, Transformers, BERT","MySQL, Query Optimization",2,Object Detection for Traffic,11,4,0
+2400104039,Juhi Chawla,7.01,"Computer Vision, OpenCV, YOLO","Cassandra, Wide-column",6,Recommendation Engine for E-commerce,10,5,0
+2400104040,Karan Johar,9.31,"TensorFlow, PyTorch, CNNs","SQL, PostgreSQL, Indexing",7,Chatbot using Gemini API,0,0,1
+2400104041,Lata Mangeshkar,7.6,"Reinforcement Learning, OpenAI Gym","MongoDB, NoSQL, Sharding",8,Solar Power Optimizer,8,0,1
+2400104042,Manoj Bajpayee,6.87,"TensorFlow, PyTorch, CNNs","MySQL, Query Optimization",10,Stock Price Predictor,6,1,0
+2400104043,Nana Patekar,6.64,"TensorFlow, PyTorch, CNNs","MySQL, Query Optimization",4,Recommendation Engine for E-commerce,10,0,0
+2400104044,Om Puri,7.67,"Time Series Analysis, LSTMs","Oracle, PL/SQL",3,Recommendation Engine for E-commerce,2,1,1
+2400104045,Pankaj Tripathi,9.41,"LLMs, LangChain, RAG","Redis, Caching, Key-Value",4,Chatbot using Gemini API,2,5,1
+2400104046,Rahul Dravid,6.86,"Data Augmentation, GANs","MongoDB, NoSQL, Sharding",4,Handwritten Digit Recognizer,5,2,0
+2400104047,Shilpa Shetty,9.21,"Computer Vision, OpenCV, YOLO","Redis, Caching, Key-Value",6,Chatbot using Gemini API,1,2,1
+2400104048,Tabu Hashmi,7.66,"LLMs, LangChain, RAG","SQL, PostgreSQL, Indexing",2,Chatbot using Gemini API,2,4,1
+2400104049,Urmila Matondkar,9.68,"Time Series Analysis, LSTMs","MySQL, Query Optimization",6,Solar Power Optimizer,9,4,0
