@@ -112,6 +112,21 @@ MODEL_EXTENSIONS = {".pkl", ".joblib"}
 DATA_EXTENSIONS = {".csv", ".xlsx", ".xls", ".json", ".parquet", ".ods"}
 SENSITIVE_FIELDS = ["gender", "ethnicity", "religion", "age_group", "age", "location", "language", "region"]
 
+EDUCATION_TEXT_MAP = {
+    "high school": 0,
+    "highschool": 0,
+    "secondary": 0,
+    "bachelor": 1,
+    "bachelors": 1,
+    "undergraduate": 1,
+    "master": 2,
+    "masters": 2,
+    "postgraduate": 2,
+    "phd": 3,
+    "doctorate": 3,
+    "doctoral": 3,
+}
+
 
 @dataclass
 class ModelSelection:
@@ -396,9 +411,16 @@ def build_feature_row(row: pd.Series, mapping: Dict[str, str], domain: str) -> D
     for feature, default in defaults.items():
         source_col = mapping.get(feature)
         value = row.get(source_col) if source_col else default
-        if pd.isna(value):
-            value = default
-        feature_row[feature] = value
+        feature_row[feature] = _coerce_feature_value(feature, value, default)
+
+    if domain == "social":
+        like_rate = float(feature_row.get("like_rate", defaults["like_rate"]))
+        share_rate = float(feature_row.get("share_rate", defaults["share_rate"]))
+        comment_rate = float(feature_row.get("comment_rate", defaults["comment_rate"]))
+        like_rate = max(0.0, min(1.0, like_rate))
+        feature_row["like_rate"] = like_rate
+        feature_row["share_rate"] = min(like_rate, max(0.0, min(1.0, share_rate)))
+        feature_row["comment_rate"] = min(like_rate, max(0.0, min(1.0, comment_rate)))
 
     for sensitive_name, source_col in detect_sensitive_columns(pd.DataFrame([row])).items():
         value = row.get(source_col)
@@ -406,6 +428,50 @@ def build_feature_row(row: pd.Series, mapping: Dict[str, str], domain: str) -> D
             feature_row[sensitive_name] = value
 
     return feature_row
+
+
+def _coerce_feature_value(feature: str, raw_value: Any, default: float) -> float | int:
+    if pd.isna(raw_value):
+        return int(default) if float(default).is_integer() else float(default)
+
+    if isinstance(raw_value, (int, float, np.integer, np.floating)):
+        value = float(raw_value)
+    else:
+        text = str(raw_value).strip()
+        if not text:
+            return int(default) if float(default).is_integer() else float(default)
+
+        if feature == "education_level":
+            lowered = text.lower()
+            for label, mapped in EDUCATION_TEXT_MAP.items():
+                if label in lowered:
+                    return mapped
+
+        cleaned = text.replace("%", "").strip()
+        try:
+            value = float(cleaned)
+        except ValueError:
+            return int(default) if float(default).is_integer() else float(default)
+
+    if feature in {"like_rate", "share_rate", "comment_rate"}:
+        if value > 1.0:
+            value = value / 100.0
+        value = max(0.0, min(1.0, value))
+
+    integer_like_fields = {
+        "education_level",
+        "num_past_jobs",
+        "certifications",
+        "credit_score",
+        "loan_term_months",
+        "num_credit_lines",
+        "topics_interacted",
+        "account_age_days",
+    }
+    if feature in integer_like_fields:
+        return int(round(value))
+
+    return round(float(value), 4)
 
 
 def _prepare_feature_frame(df: pd.DataFrame, mapping: Dict[str, str], domain: str) -> pd.DataFrame:
@@ -927,7 +993,15 @@ async def analyze_uploaded_file(
     try:
         df = read_tabular_file(file_path, extension)
     except Exception as exc:
-        raise ValueError(f"Failed to parse file: {exc}") from exc
+        logger.info("Tabular parse failed for %s (%s); using inspection fallback.", file_id, exc)
+        return await _analyze_non_tabular_file(
+            file_id=file_id,
+            metadata=metadata,
+            file_path=file_path,
+            upload_dir=upload_dir,
+            max_rows=max_rows,
+            model_file=model_file,
+        )
 
     if df.empty:
         raise ValueError("File contains no data rows")
@@ -982,4 +1056,118 @@ async def analyze_uploaded_file(
         "unmapped_columns": summary["unmapped_schema_fields"],
         "results_preview": summary["results_preview"],
         "suggested_profile": summary["suggested_profile"],
+    }
+
+
+def _select_fallback_domain(metadata: Dict[str, Any], inspection: Dict[str, Any]) -> Optional[str]:
+    candidates = [
+        metadata.get("domain"),
+        inspection.get("inferred_domain"),
+        _infer_domain_from_name(metadata.get("filename")),
+        _infer_domain_from_name(metadata.get("description")),
+    ]
+    for candidate in candidates:
+        if candidate in DEFAULT_FEATURE_VALUES:
+            return candidate
+    return None
+
+
+async def _analyze_non_tabular_file(
+    file_id: str,
+    metadata: Dict[str, Any],
+    file_path: Path,
+    upload_dir: Path,
+    max_rows: int,
+    model_file: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    from .file_inspector import inspect_file
+
+    inspection = inspect_file(file_path, metadata)
+    domain = _select_fallback_domain(metadata, inspection)
+
+    if not domain:
+        return {
+            "success": False,
+            "file_id": file_id,
+            "error": (
+                "Could not infer a prediction domain from this file. "
+                "Add clear domain fields (hiring/loan/social) or choose a domain during upload."
+            ),
+            "detected_domain": None,
+            "confidence": 0.0,
+            "rows_total": 1,
+            "rows_predicted": 0,
+            "rows_failed": 1,
+            "errors": [{"row": 0, "message": "Domain inference failed for non-tabular analysis."}],
+            "inspection_kind": inspection.get("kind"),
+        }
+
+    suggested = inspection.get("suggested_parameters") or {}
+    defaults = DEFAULT_FEATURE_VALUES[domain]
+
+    synthetic_row: Dict[str, Any] = {}
+    for feature, default in defaults.items():
+        synthetic_row[feature] = _coerce_feature_value(feature, suggested.get(feature, default), default)
+
+    if domain == "social":
+        like_rate = float(synthetic_row.get("like_rate", defaults["like_rate"]))
+        share_rate = float(synthetic_row.get("share_rate", defaults["share_rate"]))
+        comment_rate = float(synthetic_row.get("comment_rate", defaults["comment_rate"]))
+        like_rate = max(0.0, min(1.0, like_rate))
+        synthetic_row["like_rate"] = like_rate
+        synthetic_row["share_rate"] = min(like_rate, max(0.0, min(1.0, share_rate)))
+        synthetic_row["comment_rate"] = min(like_rate, max(0.0, min(1.0, comment_rate)))
+
+    for sensitive_field in SENSITIVE_FIELDS:
+        raw = suggested.get(sensitive_field)
+        if raw is not None and str(raw).strip() != "":
+            synthetic_row[sensitive_field] = str(raw).strip()
+
+    synthetic_df = pd.DataFrame([synthetic_row])
+    column_mapping = {feature: feature for feature in defaults.keys()}
+
+    summary = await batch_predict(
+        df=synthetic_df,
+        domain=domain,
+        column_mapping=column_mapping,
+        upload_dir=upload_dir,
+        model_file=model_file,
+        max_rows=max(1, min(max_rows, 10000)),
+    )
+
+    signal_count = sum(1 for feature in defaults if feature in suggested and suggested.get(feature) not in (None, ""))
+    confidence = signal_count / max(1, len(defaults))
+    confidence = min(1.0, max(0.25, confidence))
+    if inspection.get("inferred_domain") == domain:
+        confidence = min(1.0, confidence + 0.15)
+
+    return {
+        "success": True,
+        "file_id": file_id,
+        "detected_domain": domain,
+        "confidence": round(confidence, 4),
+        "column_mapping": column_mapping,
+        "rows_total": summary["rows_total"],
+        "rows_predicted": summary["rows_predicted"],
+        "rows_failed": summary["rows_failed"],
+        "summary": {
+            "approval_rate": summary["approval_rate"],
+            "avg_confidence": summary["avg_confidence"],
+            "high_bias_risk_count": summary["high_bias_risk_count"],
+            "flagged_for_review": summary["flagged_for_review"],
+        },
+        "validation": summary["final_report"]["validation"],
+        "performance": summary["final_report"]["performance"],
+        "fairness": summary["final_report"]["fairness"],
+        "scores": summary["final_report"]["scores"],
+        "report": summary["final_report"],
+        "target_column": summary["target_column"],
+        "sensitive_columns": summary["sensitive_columns"],
+        "model": summary["final_report"]["model"],
+        "errors": summary["errors"],
+        "unmapped_columns": summary["unmapped_schema_fields"],
+        "results_preview": summary["results_preview"],
+        "suggested_profile": summary["suggested_profile"],
+        "analysis_source": "inspection_fallback",
+        "inspection_kind": inspection.get("kind"),
     }

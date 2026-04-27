@@ -421,8 +421,10 @@ async def inspect_file_endpoint(file_id: str):
 @router.post("/analyze/{file_id}")
 async def analyze_file(file_id: str):
     """
-    Analyze a tabular data file: detect domain, map columns, run batch predictions.
-    Only works for 'data' category files (CSV, Excel, JSON, Parquet).
+    Analyze any uploaded file.
+    - Tabular files: full batch prediction on rows.
+    - Non-tabular files: content-inspection fallback into a single-row profile
+      so users still get a prediction-style analysis response.
     """
     from .dataset_analyzer import analyze_uploaded_file
     
@@ -430,17 +432,6 @@ async def analyze_file(file_id: str):
     meta_path = UPLOAD_DIR / f"{file_id}.json"
     if not meta_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
-    
-    # Check if it's a data file
-    with open(meta_path) as f:
-        import json
-        metadata = json.load(f)
-    
-    if metadata.get("category") != "data":
-        raise HTTPException(
-            status_code=400,
-            detail="Only data category files (CSV, Excel, JSON, Parquet) can be analyzed for predictions."
-        )
     
     # Run analysis
     try:

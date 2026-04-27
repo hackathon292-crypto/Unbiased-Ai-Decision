@@ -170,6 +170,34 @@ class TestFileScanPipeline:
         assert "validation" in data and "performance" in data and "fairness" in data
         assert save_prediction_mock.await_count >= 1
 
+    def test_non_tabular_file_can_be_analyzed(self, app_client):
+        text_payload = (
+            "loan_amount: 18000\n"
+            "credit_score: 705\n"
+            "annual_income: 68000\n"
+            "employment_years: 4\n"
+        )
+
+        upload = app_client.post(
+            "/files/upload",
+            files={"file": ("loan_profile.txt", text_payload.encode(), "text/plain")},
+            data={"domain": "loan"},
+        )
+        assert upload.status_code == 200
+        file_id = upload.json()["file"]["id"]
+
+        with patch("utils.dataset_analyzer.save_prediction") as save_prediction_mock:
+            analyze = app_client.post(f"/files/analyze/{file_id}")
+
+        assert analyze.status_code == 200
+        data = analyze.json()
+        assert "success" in data
+        assert data.get("detected_domain") in ("loan", "hiring", "social", None)
+        # Non-tabular fallback should never hard-fail with category gating.
+        assert "error" in data or data.get("success") is True
+        if data.get("success"):
+            assert save_prediction_mock.await_count >= 1
+
 
 # -----------------------------------------------------------------------------
 # Fixtures (Payloads)

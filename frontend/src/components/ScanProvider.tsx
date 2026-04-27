@@ -159,18 +159,18 @@ const INTEGER_FIELDS = new Set([
 ]);
 
 function normalizeSuggestedValue(key: string, value: string | number): string | number {
-  let normalized: string | number = value;
-
-  if (typeof normalized === 'string') {
-    const trimmed = normalized.trim();
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
     const extracted = trimmed.match(/-?\d+(?:\.\d+)?/);
     const numeric = Number(extracted ? extracted[0] : trimmed);
     if (trimmed !== '' && Number.isFinite(numeric)) {
-      normalized = numeric;
+      value = numeric;
     } else {
-      return normalized;
+      return value;
     }
   }
+
+  let normalized = Number(value);
 
   if (RATE_FIELDS.has(key)) {
     normalized = normalized > 1 ? normalized / 100 : normalized;
@@ -198,6 +198,28 @@ function normalizeProfile<T extends Record<string, unknown>>(profile: T): T {
       next[key] = normalizeSuggestedValue(key, value);
     }
   }
+
+  // Keep social rates sane for backend cross-field validation.
+  if ('like_rate' in next || 'share_rate' in next || 'comment_rate' in next) {
+    const likeRaw = typeof next.like_rate === 'number' && Number.isFinite(next.like_rate)
+      ? next.like_rate
+      : DEFAULT_SOCIAL.like_rate;
+    const shareRaw = typeof next.share_rate === 'number' && Number.isFinite(next.share_rate)
+      ? next.share_rate
+      : DEFAULT_SOCIAL.share_rate;
+    const commentRaw = typeof next.comment_rate === 'number' && Number.isFinite(next.comment_rate)
+      ? next.comment_rate
+      : DEFAULT_SOCIAL.comment_rate;
+
+    const like = Math.max(0, Math.min(1, likeRaw));
+    const share = Math.min(like, Math.max(0, Math.min(1, shareRaw)));
+    const comment = Math.min(like, Math.max(0, Math.min(1, commentRaw)));
+
+    next.like_rate = like;
+    next.share_rate = share;
+    next.comment_rate = comment;
+  }
+
   return next as T;
 }
 
@@ -354,6 +376,12 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
         [domain]: mergeRecord(nextProfiles[domain], normalizedPatch),
       };
     }
+
+    nextProfiles = {
+      loan: normalizeProfile(nextProfiles.loan),
+      hiring: normalizeProfile(nextProfiles.hiring),
+      social: normalizeProfile(nextProfiles.social),
+    };
 
     const inferredList = Array.from(inferredDomains);
     const nextState: ScanState = {

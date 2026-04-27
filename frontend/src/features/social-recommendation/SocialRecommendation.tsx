@@ -45,6 +45,7 @@ export function SocialRecommendation() {
   const [result, setResult] = useState<SocialResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shapData, setShapData] = useState<Record<string, number> | null>(null);
+  const [shapExplanation, setShapExplanation] = useState<string | null>(null);
   const [shapLoading, setShapLoading] = useState(false);
 
   useEffect(() => {
@@ -67,6 +68,7 @@ export function SocialRecommendation() {
     setFormData(prev => ({ ...prev, [field]: value }));
     setResult(null);
     setShapData(null);
+    setShapExplanation(null);
   };
 
   const handlePredict = async () => {
@@ -74,6 +76,7 @@ export function SocialRecommendation() {
     setError(null);
     setResult(null);
     setShapData(null);
+    setShapExplanation(null);
 
     try {
       const payload = {
@@ -92,17 +95,26 @@ export function SocialRecommendation() {
 
       const response = await api.predictSocial(payload);
       setResult(response);
+      if (typeof response.explanation === 'string') {
+        setShapExplanation(response.explanation);
+      }
 
       // Fetch SHAP if available
       if (response.shap_available || response.shap_poll_url) {
         setShapLoading(true);
         try {
-          const shapRes = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}${response.shap_poll_url}`);
-          if (shapRes.ok) {
-            const shapResult = await shapRes.json();
-            if (shapResult.shap_values) {
-              setShapData(shapResult.shap_values);
+          for (let attempt = 0; attempt < 10; attempt += 1) {
+            const shapResult = await api.getShapReport(response.shap_poll_url ?? '');
+            if (shapResult.shap_report?.shap_values) {
+              setShapData(shapResult.shap_report.shap_values);
             }
+            if (shapResult.shap_report?.explanation) {
+              setShapExplanation(shapResult.shap_report.explanation);
+            }
+            if (shapResult.status === 'ready' || shapResult.status === 'error') {
+              break;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 750));
           }
         } catch {
           // SHAP fetch is optional
@@ -122,6 +134,7 @@ export function SocialRecommendation() {
     setResult(null);
     setError(null);
     setShapData(null);
+    setShapExplanation(null);
   };
 
   const shapChartData = shapData
@@ -129,6 +142,11 @@ export function SocialRecommendation() {
         feature: feature.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
         impact: Math.abs(value),
       })).sort((a, b) => b.impact - a.impact)
+    : [];
+  const explanationItems = result?.explanation
+    ? Array.isArray(result.explanation)
+      ? result.explanation
+      : [result.explanation]
     : [];
 
   return (
@@ -508,17 +526,20 @@ export function SocialRecommendation() {
                     <div>
                       <h2 className="font-semibold dark:text-white">SHAP Explanation</h2>
                       <p className="text-sm text-zinc-500 dark:text-zinc-400">{result.shap_status}</p>
+                      {shapExplanation && (
+                        <p className="text-sm text-zinc-600 dark:text-zinc-300 mt-2">{shapExplanation}</p>
+                      )}
                     </div>
                   </div>
                 </div>
               )}
 
               {/* Explanation */}
-              {result.explanation && Array.isArray(result.explanation) && result.explanation.length > 0 && (
+              {explanationItems.length > 0 && (
                 <div className="bg-white dark:bg-zinc-900 rounded-3xl p-8 border border-zinc-200 dark:border-zinc-800">
                   <h2 className="text-xl font-semibold mb-4 dark:text-white">Recommendation Factors</h2>
                   <ul className="space-y-2">
-                    {result.explanation.map((item, idx) => (
+                    {explanationItems.map((item, idx) => (
                       <li key={idx} className="flex items-start gap-3">
                         <CheckCircle size={18} className="text-emerald-600 mt-0.5" />
                         <span className="dark:text-white">{item}</span>

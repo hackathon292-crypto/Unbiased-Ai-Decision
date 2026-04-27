@@ -197,13 +197,12 @@ export function Datasets({ scanTrigger = 0, onScanComplete }: DatasetsProps) {
       }
       setInspecting(false);
 
-      // Auto-analyze data files (CSV, Excel, JSON, Parquet) — this also
-      // auto-detects the domain and reflects it in the form field below.
-      const dataFiles = uploadedFiles.filter(f => f.category === 'data');
-      if (dataFiles.length > 0) {
+      // Auto-analyze every uploaded file. Non-tabular files use backend
+      // inspection fallback so users still get prediction-style analysis.
+      if (uploadedFiles.length > 0) {
         const analysisResults: DatasetAnalysisResult[] = [];
-        for (const dataFile of dataFiles) {
-          const analysis = await handleAnalyze(dataFile.id);
+        for (const uploadedFile of uploadedFiles) {
+          const analysis = await handleAnalyze(uploadedFile.id);
           if (analysis) analysisResults.push(analysis);
         }
         const primaryAnalysis = analysisResults.find((item) => item.success) ?? analysisResults[0] ?? null;
@@ -318,18 +317,16 @@ export function Datasets({ scanTrigger = 0, onScanComplete }: DatasetsProps) {
           console.warn('Inspection failed for', f.filename, err);
         }
 
-        // 2. Analyze tabular data files only
-        if (f.category === 'data') {
-          try {
-            const res = await api.analyzeDataset(f.id);
-            analysisResults.push({ file: f, result: res });
-            // Reflect detected domain into the upload form field
-            if (res.detected_domain && (res.detected_domain === 'loan' || res.detected_domain === 'hiring' || res.detected_domain === 'social')) {
-              setDomain(res.detected_domain);
-            }
-          } catch (err) {
-            console.warn('Analysis failed for', f.filename, err);
+        // 2. Analyze every file (backend falls back for non-tabular types)
+        try {
+          const res = await api.analyzeDataset(f.id);
+          analysisResults.push({ file: f, result: res });
+          // Reflect detected domain into the upload form field
+          if (res.detected_domain && (res.detected_domain === 'loan' || res.detected_domain === 'hiring' || res.detected_domain === 'social')) {
+            setDomain(res.detected_domain);
           }
+        } catch (err) {
+          console.warn('Analysis failed for', f.filename, err);
         }
       }
 
@@ -719,15 +716,13 @@ export function Datasets({ scanTrigger = 0, onScanComplete }: DatasetsProps) {
                       >
                         <ScanSearch size={18} />
                       </button>
-                      {file.category === 'data' && (
-                        <button
-                          onClick={() => handleAnalyze(file.id)}
-                          className="p-2 hover:bg-emerald-50 dark:hover:bg-emerald-950 rounded-lg text-emerald-600 transition-all duration-200 hover:scale-110"
-                          title="Analyze dataset"
-                        >
-                          <Eye size={18} />
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleAnalyze(file.id)}
+                        className="p-2 hover:bg-emerald-50 dark:hover:bg-emerald-950 rounded-lg text-emerald-600 transition-all duration-200 hover:scale-110"
+                        title="Analyze file"
+                      >
+                        <Eye size={18} />
+                      </button>
                       <button
                         onClick={() => handleDownload(file)}
                         className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-lg text-zinc-600 transition-all duration-200 hover:scale-110"
@@ -1393,7 +1388,7 @@ function buildInsights(
 
   if (failed.length > 0) {
     insights.push(
-      `${failed.length} dataset${failed.length === 1 ? '' : 's'} could not be auto-mapped (unknown schema). Rename columns to match hiring/loan/social fields for automatic analysis.`,
+      `${failed.length} file${failed.length === 1 ? '' : 's'} could not be mapped to hiring/loan/social fields automatically.`,
     );
   }
 
@@ -1450,7 +1445,7 @@ function ScanReportPanel({ report, onClose }: ScanReportPanelProps) {
         {/* Headline tiles */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <InfoTile label="Files scanned" value={String(report.total_files)} />
-          <InfoTile label="Datasets analyzed" value={`${successCount} / ${dataCount}`} />
+          <InfoTile label="Files analyzed" value={`${successCount} / ${dataCount}`} />
           <InfoTile label="Rows predicted" value={totalRowsPredicted.toLocaleString()} />
           <InfoTile
             label="Flagged for review"

@@ -155,6 +155,7 @@ export function FairnessExplorer({ autoRunToken = 0 }: FairnessExplorerProps) {
   const [result, setResult] = useState<LoanResponse | HiringResponse | SocialResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shapData, setShapData] = useState<Record<string, number> | null>(null);
+  const [shapExplanation, setShapExplanation] = useState<string | null>(null);
   const [shapLoading, setShapLoading] = useState(false);
   const manualMode = activeDomain === 'loan' || activeDomain === 'social';
 
@@ -175,17 +176,24 @@ export function FairnessExplorer({ autoRunToken = 0 }: FairnessExplorerProps) {
 
   // Fetch SHAP when result changes
   useEffect(() => {
-    if (!result?.shap_poll_url) return;
+    const shapPollUrl = result?.shap_poll_url;
+    if (!shapPollUrl) return;
     
     const fetchShap = async () => {
       setShapLoading(true);
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}${result.shap_poll_url}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.shap_values) {
-            setShapData(data.shap_values);
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+          const data = await api.getShapReport(shapPollUrl);
+          if (data.shap_report?.shap_values) {
+            setShapData(data.shap_report.shap_values);
           }
+          if (data.shap_report?.explanation) {
+            setShapExplanation(data.shap_report.explanation);
+          }
+          if (data.status === 'ready' || data.status === 'error') {
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 750));
         }
       } catch {
         // SHAP fetch is optional
@@ -202,6 +210,7 @@ export function FairnessExplorer({ autoRunToken = 0 }: FairnessExplorerProps) {
     setError(null);
     setResult(null);
     setShapData(null);
+    setShapExplanation(null);
 
     try {
       let response;
@@ -258,6 +267,9 @@ export function FairnessExplorer({ autoRunToken = 0 }: FairnessExplorerProps) {
       }
       
       setResult(response);
+      if (typeof response.explanation === 'string') {
+        setShapExplanation(response.explanation);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Prediction failed');
     } finally {
@@ -322,6 +334,11 @@ export function FairnessExplorer({ autoRunToken = 0 }: FairnessExplorerProps) {
         feature: feature.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
         impact: Math.abs(value),
       })).sort((a, b) => b.impact - a.impact).slice(0, 10)
+    : [];
+  const explanationItems = result?.explanation
+    ? Array.isArray(result.explanation)
+      ? result.explanation
+      : [result.explanation]
     : [];
 
   const renderLoanForm = () => (
@@ -516,6 +533,7 @@ export function FairnessExplorer({ autoRunToken = 0 }: FairnessExplorerProps) {
                 setResult(null);
                 setError(null);
                 setShapData(null);
+                setShapExplanation(null);
               }}
               className={`flex shrink-0 items-center gap-2 px-6 py-3 rounded-2xl font-medium transition-all ${
                 isActive
@@ -667,8 +685,37 @@ export function FairnessExplorer({ autoRunToken = 0 }: FairnessExplorerProps) {
                       <Bar dataKey="impact" radius={[0, 4, 4, 0]} fill={`#10b981`} />
                     </BarChart>
                   </ResponsiveContainer>
+                  {shapExplanation && (
+                    <p className="text-sm text-zinc-600 dark:text-zinc-300 mt-4">{shapExplanation}</p>
+                  )}
+                </div>
+              ) : result.shap_status || shapExplanation ? (
+                <div className="bg-white dark:bg-zinc-900 rounded-3xl p-8 border border-zinc-200 dark:border-zinc-800">
+                  <div className="flex items-center gap-3">
+                    <Eye className="text-zinc-400" size={24} />
+                    <div>
+                      <h2 className="font-semibold dark:text-white">SHAP Explanation</h2>
+                      {result.shap_status && (
+                        <p className="text-sm text-zinc-500 dark:text-zinc-400">{result.shap_status}</p>
+                      )}
+                      {shapExplanation && (
+                        <p className="text-sm text-zinc-600 dark:text-zinc-300 mt-2">{shapExplanation}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ) : null}
+
+              {explanationItems.length > 0 && (
+                <div className="bg-white dark:bg-zinc-900 rounded-3xl p-8 border border-zinc-200 dark:border-zinc-800">
+                  <h2 className="text-xl font-semibold mb-4 dark:text-white">Decision Explanation</h2>
+                  <ul className="space-y-2">
+                    {explanationItems.map((item, idx) => (
+                      <li key={idx} className="dark:text-white">{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Feedback Form */}
               <FeedbackForm

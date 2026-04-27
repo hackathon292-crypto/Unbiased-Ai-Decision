@@ -139,7 +139,7 @@ export interface HiringResponse {
   prediction:       number;       // 0 or 1
   prediction_label: string;       // "Hired" | "Not Hired"
   confidence:       number;       // 0–1
-  explanation:      string[];
+  explanation:      string | string[];
   bias_risk:        BiasRisk;
   fairness:         Record<string, unknown>;
   correlation_id:   string;
@@ -168,7 +168,7 @@ export interface LoanResponse {
   prediction:       number;       // 0 or 1
   prediction_label: string;       // "Approved" | "Rejected"
   confidence:       number;
-  explanation:      string[];
+  explanation:      string | string[];
   bias_risk:        BiasRisk;
   fairness:         Record<string, unknown>;
   correlation_id:   string;
@@ -198,7 +198,7 @@ export interface SocialResponse {
   recommended_category_id: number;
   recommended_category:    string;
   confidence:              number;
-  explanation:             string[];
+  explanation:             string | string[];
   bias_risk:               BiasRisk;
   fairness:                Record<string, unknown>;
   correlation_id:          string;
@@ -361,6 +361,10 @@ export interface DatasetAnalysisResult {
   rows_total: number;
   rows_predicted: number;
   rows_failed: number;
+  approval_rate?: number;
+  avg_confidence?: number;
+  high_bias_risk_count?: number;
+  flagged_for_review?: number;
   summary?: {
     approval_rate: number;
     avg_confidence: number;
@@ -386,6 +390,38 @@ export interface DatasetAnalysisResult {
   errors: Array<{ row: number; message: string }>;
   unmapped_columns?: string[];
   error?: string;
+}
+
+export interface ShapReport {
+  correlation_id: string;
+  domain: string;
+  shap_values: Record<string, number>;
+  explanation: string;
+  bias_risk?: BiasRisk | Record<string, unknown>;
+  shap_available: boolean;
+  computed_at?: string;
+  duration_ms?: number;
+}
+
+export interface ShapPollResponse {
+  correlation_id: string;
+  status: string;
+  shap_report: ShapReport | null;
+  ttl_seconds?: number;
+}
+
+function normalizeDatasetAnalysisResult(result: DatasetAnalysisResult): DatasetAnalysisResult {
+  if (result.summary) return result;
+
+  return {
+    ...result,
+    summary: {
+      approval_rate: result.approval_rate ?? 0,
+      avg_confidence: result.avg_confidence ?? 0,
+      high_bias_risk_count: result.high_bias_risk_count ?? 0,
+      flagged_for_review: result.flagged_for_review ?? 0,
+    },
+  };
 }
 
 export interface FullScanResponse {
@@ -428,7 +464,7 @@ export const api = {
   predictLoan: (body: LoanRequest) =>
     post<LoanResponse>("/loan/predict", {
       ...body,
-      loan_term_months: normalizeLoanTermMonths((body as Record<string, unknown>).loan_term_months),
+      loan_term_months: normalizeLoanTermMonths(body.loan_term_months),
     }),
 
   predictSocial: (body: SocialRequest) =>
@@ -479,8 +515,11 @@ export const api = {
       return res.json();
     }),
 
-  analyzeDataset: (fileId: string) =>
-    post<DatasetAnalysisResult>(`/files/analyze/${fileId}`, {}),
+  analyzeDataset: async (fileId: string) =>
+    normalizeDatasetAnalysisResult(await post<DatasetAnalysisResult>(`/files/analyze/${fileId}`, {})),
+
+  getShapReport: (path: string) =>
+    get<ShapPollResponse>(path.startsWith("/shap/") ? path : `/shap/${path}`),
 
   scanFiles: (body: { domain?: 'hiring' | 'loan' | 'social'; file_id?: string; max_rows?: number }) =>
     post<FullScanResponse>("/files/scan", body),
